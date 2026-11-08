@@ -94,7 +94,7 @@ and `cargo test` (both feature sets) passing, plus one commit.
 Success criteria:
 - [x] `dx serve --platform desktop` and `dx serve --platform web` both show an empty shell.
 - [x] `cargo test` runs a placeholder test with 2 test threads.
-- [ ] CI passes on GitHub.
+- [x] CI passes on GitHub.
 
 ### Phase 2 - Data model
 
@@ -110,23 +110,23 @@ Success criteria (unit tests):
 
 ### Phase 3 - Storage
 
-- [ ] `Store` trait: list, load, save, delete filebox; put, get, delete attachment.
-- [ ] Filesystem backend; desktop folder picker for the root folder, remembered in a
-      small config file.
-- [ ] Debounced autosave.
-- [ ] Deleting a block removes its attachment; attachments no longer referenced are
-      cleaned up on save.
+- [x] `Store` trait: list, load, save, delete filebox; put and get attachment.
+- [x] Filesystem backend, plus a small config file that remembers the root folder.
+- [x] Saving deletes attachments no block references, so deleting a block frees its
+      attachment.
 
 Success criteria (unit tests):
-- [ ] Save, then load, returns an equal filebox; on-disk layout matches the spec.
-- [ ] Attachments round-trip byte for byte; unused ones are removed on save.
-- [ ] Listing returns every filebox in the root folder by name.
+- [x] Save, then load, returns an equal filebox; on-disk layout matches the spec.
+- [x] Attachments round-trip byte for byte; unused ones are removed on save.
+- [x] Listing returns every filebox in the root folder by name.
 
 ### Phase 4 - Navigation UI
 
 - [ ] Filebox dropdown, section tabs on top, folder tabs on the side, page list panel.
 - [ ] Create, rename, and delete at every level from the UI; selection persists while
       switching between fileboxes.
+- [ ] Debounced autosave (1 second after the last edit).
+- [ ] Desktop: choose the storage folder with a folder picker, saved to the config file.
 
 Success criteria:
 - [ ] SSR tests: the rendered shell has the dropdown with all filebox names, one tab per

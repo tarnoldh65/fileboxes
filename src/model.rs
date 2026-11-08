@@ -1,5 +1,6 @@
 //! Fileboxes data model: a filebox holds sections, which hold folders, which hold pages.
 
+use std::collections::HashSet;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -134,6 +135,22 @@ impl Filebox {
         Ok(())
     }
 
+    /// Ids of every attachment referenced by an image or file block.
+    pub fn attachments(&self) -> HashSet<Id> {
+        self.sections
+            .iter()
+            .flat_map(|s| &s.folders)
+            .flat_map(|f| &f.pages)
+            .flat_map(|p| &p.blocks)
+            .filter_map(|b| match b.content {
+                Content::Image { attachment, .. } | Content::File { attachment, .. } => {
+                    Some(attachment)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     fn folders_mut(&mut self) -> impl Iterator<Item = &mut Folder> {
         self.sections.iter_mut().flat_map(|s| &mut s.folders)
     }
@@ -226,8 +243,6 @@ pub fn reorder<T: HasId>(items: &mut Vec<T>, id: Id, to: usize) -> Result<(), Er
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use super::*;
 
     fn name(s: &str) -> Name {
@@ -407,5 +422,25 @@ mod tests {
         ];
         let json = serde_json::to_string(&fb).unwrap();
         assert_eq!(serde_json::from_str::<Filebox>(&json).unwrap(), fb);
+    }
+
+    #[test]
+    fn attachments_collects_image_and_file_blocks_on_every_page() {
+        let mut fb = sample();
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        fb.sections[0].folders[0].pages[0].blocks = vec![
+            Block::new(Content::Image {
+                attachment: a,
+                caption: String::new(),
+            }),
+            Block::new(Content::Code {
+                text: String::new(),
+            }),
+        ];
+        fb.sections[1].folders[1].pages[1].blocks = vec![Block::new(Content::File {
+            attachment: b,
+            file_name: "x.txt".into(),
+        })];
+        assert_eq!(fb.attachments(), HashSet::from([a, b]));
     }
 }
