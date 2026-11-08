@@ -1,0 +1,6 @@
+# Limit CPU use during builds and tests.
+[build]
+jobs = 2
+
+[env]
+RUST_TEST_THREADS = "2"

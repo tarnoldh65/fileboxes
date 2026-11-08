@@ -1,0 +1,1 @@
+//! Fileboxes data model.
