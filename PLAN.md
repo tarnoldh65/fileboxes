@@ -18,8 +18,9 @@ Status: APPROVED 2026-11-08.
 Filebox  { id, name, sections: Vec<Section> }
 Section  { id, name, folders: Vec<Folder> }
 Folder   { id, name, pages: Vec<Page> }
-Page     { id, title, blocks: Vec<Block>, modified }
-Block    = Text { html } | Table { rows: Vec<Vec<String>> }
+Page     { id, title, blocks: Vec<Block> }
+Block    { id, half_width, content: Content }
+Content  = Text { html } | Table { rows: Vec<Vec<String>> }
          | Image { attachment, caption } | File { attachment, file_name }
          | Code { text }
 ```
@@ -97,15 +98,15 @@ Success criteria:
 
 ### Phase 2 - Data model
 
-- [ ] Structs and `Block` enum per the Data Model section.
-- [ ] Operations: create, rename, delete, and reorder at every level; move a page to
+- [x] Structs and `Block` enum per the Data Model section.
+- [x] Operations: create, rename, delete, and reorder at every level; move a page to
       another folder; move a folder to another section.
 
 Success criteria (unit tests):
-- [ ] Each operation changes only its target (siblings and order are preserved).
-- [ ] Deleting a section removes its folders and pages; ids stay unique.
-- [ ] JSON round-trip of a filebox with every block type is lossless.
-- [ ] Empty names are rejected; nothing else is validated.
+- [x] Each operation changes only its target (siblings and order are preserved).
+- [x] Deleting a section removes its folders and pages; ids stay unique.
+- [x] JSON round-trip of a filebox with every block type is lossless.
+- [x] Empty names are rejected; nothing else is validated.
 
 ### Phase 3 - Storage
 
