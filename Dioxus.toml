@@ -1,0 +1,5 @@
+[application]
+name = "fileboxes"
+
+[web.app]
+title = "Fileboxes"

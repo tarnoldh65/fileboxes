@@ -1,0 +1,10 @@
+* { box-sizing: border-box; }
+html, body, #main { height: 100%; margin: 0; }
+body { font-family: system-ui, sans-serif; }
+#main { display: flex; flex-direction: column; }
+.topbar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #ccc; }
+.sections { display: flex; gap: 4px; }
+.body { display: flex; flex: 1; min-height: 0; }
+.folders { width: 120px; border-right: 1px solid #ccc; }
+.pages { width: 200px; margin: 0; padding: 0; list-style: none; border-right: 1px solid #ccc; overflow-y: auto; }
+.page { flex: 1; padding: 12px; overflow-y: auto; }
