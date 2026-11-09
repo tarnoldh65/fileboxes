@@ -181,7 +181,7 @@ Success criteria:
 
 ### Phase 8 - Finish
 
-- [ ] Final README pass (build, run, test, deploy, where data is stored).
+- [x] Final README pass (build, run, test, deploy, where data is stored).
 - [ ] Remove anything unused.
 
 Success criteria:
