@@ -136,17 +136,18 @@ Success criteria:
 
 ### Phase 5 - Page editing
 
-- [ ] Text block: `contenteditable` with a toolbar (bold, italic, underline, size, color,
+- [x] Text block: `contenteditable` with a toolbar (bold, italic, underline, size, color,
       alignment, bullets, numbered list, link). HTML is sanitized with
       `ammonia` on save.
-- [ ] Table block: add/remove rows and columns, edit cells.
-- [ ] Image block: pick a file, display it inline, edit the caption.
-- [ ] File block: pick any file; click to open (desktop) or download (web).
-- [ ] Code block: monospace text area that preserves whitespace.
-- [ ] Add, delete, and move blocks up and down; toggle full or half width.
+- [x] Table block: add/remove rows and columns, edit cells.
+- [x] Image block: pick a file, display it inline, edit the caption.
+- [x] File block: pick any file; click to open (desktop) or download (web).
+- [x] Code block: monospace text area that preserves whitespace.
+- [x] Add, delete, and move blocks up and down; toggle full or half width.
+- [x] Desktop: save immediately when the window closes, so recent edits are not lost.
 
 Success criteria:
-- [ ] Unit tests: the sanitizer keeps every supported format and strips `<script>`,
+- [x] Unit tests: the sanitizer keeps every supported format and strips `<script>`,
       event handlers, and `javascript:` links; table row/column edits keep the grid
       rectangular.
 - [ ] Manual: a page with every block type and every text format survives a restart

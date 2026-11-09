@@ -101,7 +101,7 @@ pub struct Block {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Content {
     Text { html: String },
-    Table { rows: Vec<Vec<String>> },
+    Table(Table),
     Image { attachment: Id, caption: String },
     File { attachment: Id, file_name: String },
     Code { text: String },
@@ -113,6 +113,53 @@ pub enum Item {
     Section(Id),
     Folder(Id),
     Page(Id),
+}
+
+/// A grid of text cells. Every row has the same length, and there is always at least
+/// one row and one column.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Table {
+    pub rows: Vec<Vec<String>>,
+}
+
+impl Default for Table {
+    fn default() -> Self {
+        Self {
+            rows: vec![vec![String::new(); 2]; 2],
+        }
+    }
+}
+
+impl Table {
+    pub fn columns(&self) -> usize {
+        self.rows[0].len()
+    }
+
+    pub fn add_row(&mut self) {
+        self.rows.push(vec![String::new(); self.columns()]);
+    }
+
+    pub fn add_column(&mut self) {
+        for row in &mut self.rows {
+            row.push(String::new());
+        }
+    }
+
+    /// Removes the last row, unless it is the only one.
+    pub fn remove_row(&mut self) {
+        if self.rows.len() > 1 {
+            self.rows.pop();
+        }
+    }
+
+    /// Removes the last column, unless it is the only one.
+    pub fn remove_column(&mut self) {
+        if self.columns() > 1 {
+            for row in &mut self.rows {
+                row.pop();
+            }
+        }
+    }
 }
 
 impl Filebox {
@@ -181,12 +228,7 @@ impl Filebox {
         match item {
             Item::Section(id) => find_mut(&mut self.sections, id)?.name = name,
             Item::Folder(id) => self.folder_mut(id)?.name = name,
-            Item::Page(id) => {
-                self.folders_mut()
-                    .find_map(|f| find_mut(&mut f.pages, id).ok())
-                    .ok_or(Error::NotFound)?
-                    .title = name
-            }
+            Item::Page(id) => self.page_mut(id)?.title = name,
         }
         Ok(())
     }
@@ -211,6 +253,12 @@ impl Filebox {
 
     fn folders_mut(&mut self) -> impl Iterator<Item = &mut Folder> {
         self.sections.iter_mut().flat_map(|s| &mut s.folders)
+    }
+
+    pub fn page_mut(&mut self, id: Id) -> Result<&mut Page, Error> {
+        self.folders_mut()
+            .find_map(|f| find_mut(&mut f.pages, id).ok())
+            .ok_or(Error::NotFound)
     }
 
     fn folder_mut(&mut self, id: Id) -> Result<&mut Folder, Error> {
@@ -465,9 +513,9 @@ mod tests {
             Block::new(Content::Text {
                 html: "<p><b>Bold</b> and <i>italic</i></p>".into(),
             }),
-            Block::new(Content::Table {
+            Block::new(Content::Table(Table {
                 rows: vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into()]],
-            }),
+            })),
             Block::new(Content::Image {
                 attachment: Uuid::new_v4(),
                 caption: "A picture".into(),
@@ -527,6 +575,57 @@ mod tests {
             assert_eq!(fb.delete(item), Err(Error::NotFound));
         }
         assert_eq!(fb, before);
+    }
+
+    fn assert_rectangular(table: &Table, rows: usize, columns: usize) {
+        assert_eq!(table.rows.len(), rows);
+        assert!(table.rows.iter().all(|r| r.len() == columns));
+    }
+
+    #[test]
+    fn table_edits_keep_grid_rectangular() {
+        let mut table = Table::default();
+        assert_rectangular(&table, 2, 2);
+        table.add_row();
+        assert_rectangular(&table, 3, 2);
+        table.add_column();
+        table.add_column();
+        assert_rectangular(&table, 3, 4);
+        table.remove_row();
+        table.remove_column();
+        assert_rectangular(&table, 2, 3);
+    }
+
+    #[test]
+    fn table_keeps_at_least_one_cell_and_existing_text() {
+        let mut table = Table::default();
+        table.rows[0][0] = "kept".into();
+        for _ in 0..3 {
+            table.remove_row();
+            table.remove_column();
+        }
+        assert_rectangular(&table, 1, 1);
+        table.add_row();
+        table.add_column();
+        assert_rectangular(&table, 2, 2);
+        assert_eq!(table.rows[0][0], "kept");
+    }
+
+    #[test]
+    fn page_mut_finds_pages_in_any_section() {
+        let mut fb = sample();
+        let id = fb.sections[1].folders[1].pages[1].id;
+        assert_eq!(fb.page_mut(id).unwrap().title.as_str(), "S2F2P2");
+        assert_eq!(fb.page_mut(Uuid::new_v4()), Err(Error::NotFound));
+    }
+
+    #[test]
+    fn table_json_shape_is_flat() {
+        let block = Content::Table(Table::default());
+        assert_eq!(
+            serde_json::to_string(&block).unwrap(),
+            r#"{"type":"table","rows":[["",""],["",""]]}"#
+        );
     }
 
     #[test]

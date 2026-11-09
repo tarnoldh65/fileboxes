@@ -34,3 +34,34 @@ button { font: inherit; cursor: pointer; }
 .dialog { position: fixed; z-index: 11; top: 30%; left: 50%; transform: translateX(-50%); background: #fff; padding: 16px 20px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); }
 .dialog button { margin-right: 8px; }
 .danger { background: #c33; color: #fff; border: 1px solid #a22; }
+
+.toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 2px; align-items: center; padding: 4px 0; margin-bottom: 8px; background: #fff; border-bottom: 1px solid #ddd; }
+.toolbar button { border: 1px solid transparent; background: none; padding: 2px 7px; }
+.toolbar button:hover { border-color: #bbb; background: #f4f4f4; }
+.sep { width: 1px; height: 18px; margin: 0 4px; background: #ccc; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; vertical-align: middle; }
+
+.blocks { display: flex; flex-wrap: wrap; gap: 12px; }
+.block { position: relative; width: 100%; padding: 4px; border: 1px solid transparent; border-radius: 3px; }
+.block.half { width: calc(50% - 6px); }
+.block:hover, .block:focus-within { border-color: #ddd; }
+.block-tools { position: absolute; top: -12px; right: 4px; display: none; gap: 2px; background: #fff; }
+.block:hover .block-tools, .block:focus-within .block-tools { display: flex; }
+.block-tools button { font-size: 12px; padding: 1px 6px; border: 1px solid #ccc; background: #fff; }
+
+.text { min-height: 1.5em; padding: 2px 4px; outline: none; }
+.text:empty::before { content: "Type here"; color: #aaa; }
+.text p { margin: 0 0 0.5em; }
+.grid { border-collapse: collapse; }
+.grid td { border: 1px solid #ccc; padding: 0; }
+.grid input { border: none; padding: 4px 6px; font: inherit; width: 140px; }
+.table-tools { margin-top: 4px; }
+.table-tools button { font-size: 12px; }
+.image { margin: 0; }
+.image img { max-width: 100%; display: block; }
+.caption { width: 100%; border: none; color: #555; font: inherit; font-style: italic; padding: 2px 0; }
+.file { padding: 6px 12px; border: 1px solid #bbb; background: #f7f7f7; }
+.code { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 13px; padding: 8px; background: #f6f6f6; border: 1px solid #ddd; white-space: pre; tab-size: 4; resize: vertical; }
+
+.add-blocks { display: flex; gap: 6px; margin-top: 16px; padding-top: 8px; border-top: 1px dashed #ddd; }
+.add-blocks button, .button { padding: 3px 10px; border: 1px solid #bbb; background: #f7f7f7; cursor: pointer; font: inherit; }
