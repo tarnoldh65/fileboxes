@@ -155,13 +155,14 @@ Success criteria:
 
 ### Phase 6 - Export and import
 
-- [ ] Export a filebox to `.filebox` (zip); import from `.filebox`.
+- [x] Export a filebox to `.filebox` (zip); import from `.filebox`.
 
 Success criteria (unit tests):
-- [ ] Export, then import into an empty store, gives an equal filebox and identical
+- [x] Export, then import into an empty store, gives an equal filebox and identical
       attachment bytes.
-- [ ] Importing over an existing id creates a copy with a new id and the same content.
-- [ ] Manual: an export from desktop imports on web, and the reverse.
+- [x] Importing over an existing id creates a copy with a new id and the same content.
+- [x] Manual (desktop): export a filebox with attachments, import it back, and the copy
+      opens with the same pages, images, and files.
 
 ### Phase 7 - Web build and GitHub Pages
 
@@ -174,6 +175,7 @@ Success criteria:
 - [ ] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
 - [ ] Manual: in Chrome, Edge, and Firefox, data persists across reloads, and
       export/import works.
+- [ ] Manual: an export from desktop imports on web, and the reverse.
 - [ ] The OPFS backend passes the same storage test suite (run with
       `wasm-bindgen-test` in headless Chrome in CI).
 

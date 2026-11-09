@@ -208,6 +208,40 @@ impl AppState {
         self.renaming.set(Some(Target::Filebox));
     }
 
+    /// Saves the current filebox as a `.filebox` archive.
+    pub async fn export_filebox(mut self) {
+        let Some((id, name)) = self
+            .filebox
+            .peek()
+            .as_ref()
+            .map(|fb| (fb.id, fb.name.clone()))
+        else {
+            return;
+        };
+        self.flush().await;
+        let store = self.store.peek().clone();
+        if let Some(bytes) = self.report(crate::archive::export(&*store, id).await) {
+            let file_name = format!("{name}.{}", crate::archive::EXTENSION);
+            self.report(super::files::save_file(&file_name, &bytes).await);
+        }
+    }
+
+    /// Adds a filebox from a `.filebox` archive and opens it.
+    pub async fn import_filebox(mut self, file: FileData) {
+        let Some(bytes) = self.report(
+            file.read_bytes()
+                .await
+                .map_err(|e| io::Error::other(e.to_string())),
+        ) else {
+            return;
+        };
+        let store = self.store.peek().clone();
+        if let Some(fb) = self.report(crate::archive::import(&*store, &bytes).await) {
+            self.refresh().await;
+            self.open(fb.id).await;
+        }
+    }
+
     async fn delete_filebox(mut self) {
         // Clearing the filebox first also cancels any pending autosave of it.
         let Some(fb) = self.filebox.take() else {
