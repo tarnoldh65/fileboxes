@@ -161,7 +161,7 @@ Success criteria (unit tests):
 - [x] Export, then import into an empty store, gives an equal filebox and identical
       attachment bytes.
 - [x] Importing over an existing id creates a copy with a new id and the same content.
-- [ ] Manual (desktop): export a filebox with attachments, import it back, and the copy
+- [x] Manual (desktop): export a filebox with attachments, import it back, and the copy
       opens with the same pages, images, and files.
 
 ### Phase 7 - Web build and GitHub Pages
