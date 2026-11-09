@@ -124,41 +124,20 @@ impl Config {
     }
 }
 
+/// Backend-independent storage tests live in `tests/suite`.
 #[cfg(test)]
 mod tests {
     use pollster::block_on;
-    use uuid::Uuid;
 
     use super::*;
-    use crate::model::{Block, Content, Folder, Name, Page, Section};
-
-    fn name(s: &str) -> Name {
-        Name::new(s).unwrap()
-    }
+    use crate::model::Name;
 
     fn filebox(title: &str) -> Filebox {
-        let mut fb = Filebox::new(name(title));
-        let mut section = Section::new(name("Section"));
-        let mut folder = Folder::new(name("Folder"));
-        folder.pages.push(Page::new(name("Page")));
-        section.folders.push(folder);
-        fb.sections.push(section);
-        fb
-    }
-
-    fn blocks(fb: &mut Filebox) -> &mut Vec<Block> {
-        &mut fb.sections[0].folders[0].pages[0].blocks
-    }
-
-    fn image(attachment: Id) -> Block {
-        Block::new(Content::Image {
-            attachment,
-            caption: String::new(),
-        })
+        Filebox::new(Name::new(title).unwrap())
     }
 
     #[test]
-    fn save_then_load_round_trips_with_expected_layout() {
+    fn save_uses_expected_layout() {
         let dir = tempfile::tempdir().unwrap();
         let store = FsStore::open(dir.path()).unwrap();
         let fb = filebox("Notes");
@@ -168,95 +147,19 @@ mod tests {
         assert!(fb_dir.join("filebox.json").is_file());
         assert!(fb_dir.join("attachments").is_dir());
         assert!(!fb_dir.join("filebox.json.tmp").exists());
-        assert_eq!(block_on(store.load(fb.id)).unwrap(), fb);
     }
 
     #[test]
-    fn save_overwrites_previous_version() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path()).unwrap();
-        let mut fb = filebox("Notes");
-        block_on(store.save(&fb)).unwrap();
-        fb.name = name("Renamed");
-        block_on(store.save(&fb)).unwrap();
-        assert_eq!(block_on(store.load(fb.id)).unwrap(), fb);
-    }
-
-    #[test]
-    fn attachments_round_trip_byte_for_byte() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path()).unwrap();
-        let mut fb = filebox("Notes");
-        let bytes: Vec<u8> = (0..=255).cycle().take(10_000).collect();
-        let id = Uuid::new_v4();
-        block_on(store.put_attachment(fb.id, id, &bytes)).unwrap();
-        blocks(&mut fb).push(image(id));
-        block_on(store.save(&fb)).unwrap();
-
-        let path = dir
-            .path()
-            .join(fb.id.to_string())
-            .join("attachments")
-            .join(id.to_string());
-        assert!(path.is_file());
-        assert_eq!(block_on(store.get_attachment(fb.id, id)).unwrap(), bytes);
-    }
-
-    #[test]
-    fn save_removes_unreferenced_attachments() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path()).unwrap();
-        let mut fb = filebox("Notes");
-        let (kept, dropped) = (Uuid::new_v4(), Uuid::new_v4());
-        block_on(store.put_attachment(fb.id, kept, b"keep")).unwrap();
-        block_on(store.put_attachment(fb.id, dropped, b"drop")).unwrap();
-        blocks(&mut fb).extend([image(kept), image(dropped)]);
-        block_on(store.save(&fb)).unwrap();
-
-        // Deleting the block frees its attachment on the next save.
-        blocks(&mut fb).pop();
-        block_on(store.save(&fb)).unwrap();
-        assert_eq!(
-            block_on(store.get_attachment(fb.id, kept)).unwrap(),
-            b"keep"
-        );
-        assert!(block_on(store.get_attachment(fb.id, dropped)).is_err());
-    }
-
-    #[test]
-    fn list_returns_every_filebox_sorted_by_name() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path()).unwrap();
-        let (b, a) = (filebox("Beta"), filebox("Alpha"));
-        block_on(store.save(&b)).unwrap();
-        block_on(store.save(&a)).unwrap();
-        fs::create_dir(dir.path().join("not-a-filebox")).unwrap();
-
-        let list = block_on(store.list()).unwrap();
-        assert_eq!(
-            list,
-            [
-                Summary {
-                    id: a.id,
-                    name: a.name
-                },
-                Summary {
-                    id: b.id,
-                    name: b.name
-                }
-            ]
-        );
-    }
-
-    #[test]
-    fn delete_removes_filebox_folder() {
+    fn list_ignores_folders_that_are_not_fileboxes() {
         let dir = tempfile::tempdir().unwrap();
         let store = FsStore::open(dir.path()).unwrap();
         let fb = filebox("Notes");
         block_on(store.save(&fb)).unwrap();
-        block_on(store.delete(fb.id)).unwrap();
-        assert!(!dir.path().join(fb.id.to_string()).exists());
-        assert!(block_on(store.list()).unwrap().is_empty());
+        fs::create_dir(dir.path().join("not-a-filebox")).unwrap();
+        fs::write(dir.path().join("stray.txt"), "x").unwrap();
+        let list = block_on(store.list()).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, fb.id);
     }
 
     #[test]

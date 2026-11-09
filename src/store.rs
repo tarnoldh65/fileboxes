@@ -9,6 +9,7 @@ use crate::model::{Filebox, Id, Name};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod fs;
+#[cfg(target_arch = "wasm32")]
 pub mod opfs;
 
 pub const FILEBOX_FILE: &str = "filebox.json";

@@ -29,7 +29,7 @@ pub fn open_store() -> AppStore {
 
 #[cfg(target_arch = "wasm32")]
 pub fn open_store() -> AppStore {
-    crate::store::opfs::OpfsStore
+    crate::store::opfs::OpfsStore::new("fileboxes")
 }
 
 /// What a rename, menu, or delete applies to.

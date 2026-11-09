@@ -20,3 +20,22 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo clippy --no-default-features --features web --target wasm32-unknown-unknown -- -D warnings
       - run: cargo test
+
+  browser-storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # The test runner must match the wasm-bindgen version in Cargo.lock.
+      - id: wasm-bindgen
+        run: echo "version=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
+      # The runner image ships Chrome and a matching chromedriver in $CHROMEWEBDRIVER.
+      - run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test --target wasm32-unknown-unknown --no-default-features --features web --test opfs_store
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
