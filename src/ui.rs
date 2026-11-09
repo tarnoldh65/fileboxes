@@ -1,4 +1,5 @@
 mod blocks;
+mod files;
 mod state;
 
 use dioxus::prelude::*;
@@ -150,6 +151,19 @@ fn FileboxPicker() -> Element {
             }
         }
         button { class: "add", title: "New filebox", onclick: move |_| { spawn(state.new_filebox()); }, "+" }
+        label { class: "button", title: "Import a .filebox file",
+            "Import"
+            input {
+                r#type: "file",
+                accept: ".filebox",
+                hidden: true,
+                onchange: move |e| {
+                    for file in e.files() {
+                        spawn(state.import_filebox(file));
+                    }
+                },
+            }
+        }
         if current.is_some() {
             button {
                 title: "Filebox actions",
@@ -246,6 +260,15 @@ fn ContextMenu() -> Element {
                     state.deleting.set(Some(target));
                 },
                 "Delete"
+            }
+            if target == Target::Filebox {
+                button {
+                    onclick: move |_| {
+                        state.menu.set(None);
+                        spawn(state.export_filebox());
+                    },
+                    "Export"
+                }
             }
         }
     }

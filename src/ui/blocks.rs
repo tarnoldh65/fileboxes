@@ -1,10 +1,9 @@
 //! Page editor: the formatting toolbar and one component per block type.
 
-use std::io;
-
 use base64::{Engine, engine::general_purpose::STANDARD};
 use dioxus::prelude::*;
 
+use super::files::open_file;
 use super::state::AppState;
 use crate::model::{Block, Content, Id, Page, Table};
 use crate::sanitize::sanitize;
@@ -276,33 +275,6 @@ fn ImageBlock(id: Id, attachment: Id, caption: String) -> Element {
             }
         }
     }
-}
-
-/// Desktop: writes the file to a temp folder and opens it with the default app.
-#[cfg(not(target_arch = "wasm32"))]
-fn open_file(attachment: Id, name: &str, bytes: &[u8]) -> io::Result<()> {
-    use std::path::Path;
-    let dir = std::env::temp_dir()
-        .join("fileboxes")
-        .join(attachment.to_string());
-    std::fs::create_dir_all(&dir)?;
-    // Only the last path component, so a stored name cannot point outside `dir`.
-    let path = dir.join(Path::new(name).file_name().unwrap_or("file".as_ref()));
-    std::fs::write(&path, bytes)?;
-    open::that_detached(path)
-}
-
-/// Web: downloads the file.
-#[cfg(target_arch = "wasm32")]
-fn open_file(_attachment: Id, name: &str, bytes: &[u8]) -> io::Result<()> {
-    let name = serde_json::to_string(name)?;
-    document::eval(&format!(
-        "const a = document.createElement('a'); \
-         a.href = 'data:application/octet-stream;base64,{}'; \
-         a.download = {name}; a.click();",
-        STANDARD.encode(bytes)
-    ));
-    Ok(())
 }
 
 #[component]
