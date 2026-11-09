@@ -171,31 +171,6 @@ impl Filebox {
         }
     }
 
-    /// Moves a page from any folder to the end of `to_folder`.
-    pub fn move_page(&mut self, page: Id, to_folder: Id) -> Result<(), Error> {
-        self.folder_mut(to_folder)?;
-        let page = self
-            .folders_mut()
-            .find_map(|f| remove(&mut f.pages, page).ok())
-            .ok_or(Error::NotFound)?;
-        self.folder_mut(to_folder)?.pages.push(page);
-        Ok(())
-    }
-
-    /// Moves a folder from any section to the end of `to_section`.
-    pub fn move_folder(&mut self, folder: Id, to_section: Id) -> Result<(), Error> {
-        find_mut(&mut self.sections, to_section)?;
-        let folder = self
-            .sections
-            .iter_mut()
-            .find_map(|s| remove(&mut s.folders, folder).ok())
-            .ok_or(Error::NotFound)?;
-        find_mut(&mut self.sections, to_section)?
-            .folders
-            .push(folder);
-        Ok(())
-    }
-
     /// Ids of every attachment referenced by an image or file block.
     pub fn attachments(&self) -> HashSet<Id> {
         self.sections
@@ -441,49 +416,6 @@ mod tests {
         assert_eq!(page_titles(folder), ["S1F1P3", "S1F1P1", "S1F1P2"]);
         reorder(&mut folder.pages, id, 2).unwrap();
         assert_eq!(page_titles(folder), ["S1F1P1", "S1F1P2", "S1F1P3"]);
-    }
-
-    #[test]
-    fn move_page_to_another_section_folder() {
-        let mut fb = sample();
-        let page = fb.sections[0].folders[0].pages[0].clone();
-        let target = fb.sections[1].folders[1].id;
-        fb.move_page(page.id, target).unwrap();
-        assert_eq!(page_titles(&fb.sections[0].folders[0]), ["S1F1P2"]);
-        assert_eq!(
-            page_titles(&fb.sections[1].folders[1]),
-            ["S2F2P1", "S2F2P2", "S1F1P1"]
-        );
-        assert_eq!(fb.sections[1].folders[1].pages[2], page);
-    }
-
-    #[test]
-    fn move_page_to_missing_folder_changes_nothing() {
-        let mut fb = sample();
-        let before = fb.clone();
-        let page = fb.sections[0].folders[0].pages[0].id;
-        assert_eq!(fb.move_page(page, Uuid::new_v4()), Err(Error::NotFound));
-        assert_eq!(fb, before);
-    }
-
-    #[test]
-    fn move_folder_to_another_section() {
-        let mut fb = sample();
-        let folder = fb.sections[0].folders[1].clone();
-        let target = fb.sections[1].id;
-        fb.move_folder(folder.id, target).unwrap();
-        assert_eq!(fb.sections[0].folders.len(), 1);
-        assert_eq!(fb.sections[1].folders.len(), 3);
-        assert_eq!(fb.sections[1].folders[2], folder);
-    }
-
-    #[test]
-    fn move_folder_to_missing_section_changes_nothing() {
-        let mut fb = sample();
-        let before = fb.clone();
-        let folder = fb.sections[0].folders[0].id;
-        assert_eq!(fb.move_folder(folder, Uuid::new_v4()), Err(Error::NotFound));
-        assert_eq!(fb, before);
     }
 
     #[test]
