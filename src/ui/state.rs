@@ -5,10 +5,14 @@ use std::io;
 use std::rc::Rc;
 use std::time::Duration;
 
+use dioxus::html::FileData;
 use dioxus::prelude::*;
 use futures_timer::Delay;
+use uuid::Uuid;
 
-use crate::model::{Filebox, Folder, Id, Item, Name, Page, Section, find_mut};
+use crate::model::{
+    Block, Content, Filebox, Folder, Id, Item, Name, Page, Section, find_mut, remove, reorder,
+};
 use crate::store::{Store, Summary};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -75,6 +79,8 @@ pub struct AppState {
     pub menu: Signal<Option<Menu>>,
     pub deleting: Signal<Option<Target>>,
     pub error: Signal<Option<String>>,
+    /// Bumped after each attachment write, so image blocks reload their bytes.
+    pub attachments_written: Signal<u32>,
 }
 
 fn name(s: &str) -> Name {
@@ -92,6 +98,7 @@ impl AppState {
             menu: Signal::new(None),
             deleting: Signal::new(None),
             error: Signal::new(None),
+            attachments_written: Signal::new(0),
         }
     }
 
@@ -139,7 +146,7 @@ impl AppState {
         }
     }
 
-    fn report<T>(&mut self, result: io::Result<T>) -> Option<T> {
+    pub fn report<T>(&mut self, result: io::Result<T>) -> Option<T> {
         result.map_err(|e| self.error.set(Some(e.to_string()))).ok()
     }
 
@@ -156,6 +163,17 @@ impl AppState {
         let store = self.store.peek().clone();
         if let Some(boxes) = self.report(store.list().await) {
             self.boxes.set(boxes);
+        }
+    }
+
+    /// Desktop only: saves the current filebox right away, blocking. Used on window close.
+    #[cfg(feature = "desktop")]
+    pub fn flush_blocking(&mut self) {
+        let fb = self.filebox.peek().clone();
+        if let Some(fb) = fb {
+            let store = self.store.peek().clone();
+            // The filesystem store never waits, so this does not block the UI for long.
+            self.report(pollster::block_on(store.save(&fb)));
         }
     }
 
@@ -277,6 +295,78 @@ impl AppState {
         });
         self.select(|s| s.folder = Some(id));
         self.renaming.set(Some(Target::Item(Item::Folder(id))));
+    }
+
+    /// Changes the current page, if there is one.
+    pub fn edit_page(&mut self, change: impl FnOnce(&mut Page)) {
+        let Some(page) = self.current().page else {
+            return;
+        };
+        self.edit(|fb| change(fb.page_mut(page).expect("current page exists")));
+    }
+
+    pub fn edit_block(&mut self, id: Id, change: impl FnOnce(&mut Block)) {
+        self.edit_page(|p| {
+            if let Ok(block) = find_mut(&mut p.blocks, id) {
+                change(block);
+            }
+        });
+    }
+
+    pub fn add_block(&mut self, content: Content) {
+        self.edit_page(|p| p.blocks.push(Block::new(content)));
+    }
+
+    pub fn delete_block(&mut self, id: Id) {
+        self.edit_page(|p| _ = remove(&mut p.blocks, id));
+    }
+
+    /// Moves a block up (-1) or down (+1); does nothing at either end.
+    pub fn move_block(&mut self, id: Id, by: isize) {
+        self.edit_page(|p| {
+            let Some(at) = p.blocks.iter().position(|b| b.id == id) else {
+                return;
+            };
+            if let Some(to) = at.checked_add_signed(by).filter(|&to| to < p.blocks.len()) {
+                _ = reorder(&mut p.blocks, id, to);
+            }
+        });
+    }
+
+    /// Adds an image or file block for an uploaded file, then stores its bytes.
+    /// The block goes in first so autosave never deletes the new attachment as unused.
+    pub async fn add_attachment(mut self, file: FileData, image: bool) {
+        let Some(fb) = self.filebox.peek().as_ref().map(|fb| fb.id) else {
+            return;
+        };
+        let Some(bytes) = self.report(
+            file.read_bytes()
+                .await
+                .map_err(|e| io::Error::other(e.to_string())),
+        ) else {
+            return;
+        };
+        let attachment = Uuid::new_v4();
+        self.add_block(if image {
+            Content::Image {
+                attachment,
+                caption: String::new(),
+            }
+        } else {
+            Content::File {
+                attachment,
+                file_name: file.name(),
+            }
+        });
+        let store = self.store.peek().clone();
+        self.report(store.put_attachment(fb, attachment, &bytes).await);
+        self.attachments_written += 1;
+    }
+
+    pub async fn get_attachment(mut self, attachment: Id) -> Option<Vec<u8>> {
+        let fb = self.filebox.peek().as_ref().map(|fb| fb.id)?;
+        let store = self.store.peek().clone();
+        self.report(store.get_attachment(fb, attachment).await)
     }
 
     pub fn add_page(&mut self) {

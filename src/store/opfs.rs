@@ -31,7 +31,7 @@ impl Store for OpfsStore {
         Ok(())
     }
 
-    async fn put_attachment(&self, _filebox: Id, _bytes: &[u8]) -> io::Result<Id> {
+    async fn put_attachment(&self, _filebox: Id, _attachment: Id, _bytes: &[u8]) -> io::Result<()> {
         unsupported()
     }
 

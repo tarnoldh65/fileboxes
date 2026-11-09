@@ -5,7 +5,6 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::{ATTACHMENTS_DIR, FILEBOX_FILE, Store, Summary};
 use crate::model::{Filebox, Id};
@@ -72,12 +71,10 @@ impl Store for FsStore {
         fs::remove_dir_all(self.dir(id))
     }
 
-    async fn put_attachment(&self, filebox: Id, bytes: &[u8]) -> io::Result<Id> {
+    async fn put_attachment(&self, filebox: Id, attachment: Id, bytes: &[u8]) -> io::Result<()> {
         let dir = self.attachments_dir(filebox);
         fs::create_dir_all(&dir)?;
-        let id = Uuid::new_v4();
-        fs::write(dir.join(id.to_string()), bytes)?;
-        Ok(id)
+        fs::write(dir.join(attachment.to_string()), bytes)
     }
 
     async fn get_attachment(&self, filebox: Id, attachment: Id) -> io::Result<Vec<u8>> {
@@ -130,6 +127,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use pollster::block_on;
+    use uuid::Uuid;
 
     use super::*;
     use crate::model::{Block, Content, Folder, Name, Page, Section};
@@ -190,7 +188,8 @@ mod tests {
         let store = FsStore::open(dir.path()).unwrap();
         let mut fb = filebox("Notes");
         let bytes: Vec<u8> = (0..=255).cycle().take(10_000).collect();
-        let id = block_on(store.put_attachment(fb.id, &bytes)).unwrap();
+        let id = Uuid::new_v4();
+        block_on(store.put_attachment(fb.id, id, &bytes)).unwrap();
         blocks(&mut fb).push(image(id));
         block_on(store.save(&fb)).unwrap();
 
@@ -208,8 +207,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = FsStore::open(dir.path()).unwrap();
         let mut fb = filebox("Notes");
-        let kept = block_on(store.put_attachment(fb.id, b"keep")).unwrap();
-        let dropped = block_on(store.put_attachment(fb.id, b"drop")).unwrap();
+        let (kept, dropped) = (Uuid::new_v4(), Uuid::new_v4());
+        block_on(store.put_attachment(fb.id, kept, b"keep")).unwrap();
+        block_on(store.put_attachment(fb.id, dropped, b"drop")).unwrap();
         blocks(&mut fb).extend([image(kept), image(dropped)]);
         block_on(store.save(&fb)).unwrap();
 

@@ -1,3 +1,4 @@
+mod blocks;
 mod state;
 
 use dioxus::prelude::*;
@@ -12,11 +13,28 @@ pub fn App() -> Element {
     let state = use_context_provider(|| AppState::new(state::open_store()));
     state::use_autosave(state);
     use_future(move || state.start());
+    #[cfg(feature = "desktop")]
+    save_on_close(state);
     rsx! {
         document::Title { "Fileboxes" }
         document::Stylesheet { href: MAIN_CSS }
         Shell {}
     }
+}
+
+/// Saves right away when the window closes, so the last second of edits is not lost.
+#[cfg(feature = "desktop")]
+fn save_on_close(mut state: AppState) {
+    use dioxus::desktop::{WindowEvent, tao::event::Event};
+    dioxus::desktop::use_wry_event_handler(move |event, _| {
+        if let Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } = event
+        {
+            state.flush_blocking();
+        }
+    });
 }
 
 #[component]
@@ -95,7 +113,7 @@ fn Shell() -> Element {
             }
             article { class: "page",
                 if let Some(page) = page {
-                    h1 { "{page.title}" }
+                    blocks::PageView { key: "{page.id}", page: page.clone() }
                 } else if filebox.is_none() {
                     p { class: "hint", "Create a filebox with + to get started." }
                 }
@@ -261,7 +279,7 @@ fn ConfirmDelete() -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Filebox, Folder, Name, Page, Section};
+    use crate::model::{Block, Content, Filebox, Folder, Name, Page, Section, Table};
     use crate::store::Summary;
     use crate::store::fs::FsStore;
     use state::Selection;
@@ -379,5 +397,47 @@ mod tests {
         assert!(!html.contains(">Alpha One</button>"));
         assert_in_order(&html, &[">Beta One</button>", ">Beta Three</button>"]);
         assert!(html.contains("<h1>Beta Three</h1>"));
+    }
+
+    #[test]
+    fn page_renders_every_block_type() {
+        let mut fb = sample();
+        let mut table = Table::default();
+        table.add_column();
+        table.rows[1][2] = "cell text".into();
+        let mut code = Block::new(Content::Code {
+            text: "let x = 1;".into(),
+        });
+        code.half_width = true;
+        fb.sections[0].folders[0].pages[0].blocks = vec![
+            Block::new(Content::Text {
+                html: "<p><b>Bold</b> words</p>".into(),
+            }),
+            Block::new(Content::Table(table)),
+            Block::new(Content::Image {
+                attachment: uuid::Uuid::new_v4(),
+                caption: "A caption".into(),
+            }),
+            Block::new(Content::File {
+                attachment: uuid::Uuid::new_v4(),
+                file_name: "report.pdf".into(),
+            }),
+            code,
+        ];
+        let html = render(fb, Selection::default());
+        assert_in_order(
+            &html,
+            &[
+                "<p><b>Bold</b> words</p>",
+                "value=\"cell text\"",
+                "value=\"A caption\"",
+                ">report.pdf</button>",
+                "value=\"let x = 1;\"></textarea>",
+            ],
+        );
+        assert!(html.contains("contenteditable=\"true\""));
+        assert_eq!(html.matches("<td>").count(), 6);
+        assert_eq!(html.matches("class=\"block half\"").count(), 1);
+        assert_eq!(html.matches("class=\"block\"").count(), 4);
     }
 }

@@ -5,6 +5,8 @@ edition = "2024"
 license = "AGPL-3.0-only"
 
 [dependencies]
+ammonia = "4.2.4"
+base64 = "0.23.1"
 dioxus = "0.7.10"
 futures-timer = "3.0.4"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -13,6 +15,8 @@ uuid = { version = "1.29.1", features = ["v4", "serde", "js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 dirs = "7.0.0"
+open = "5.4.5"
+pollster = "1.0.1"
 rfd = { version = "0.18.0", default-features = false, features = ["xdg-portal"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -20,7 +24,6 @@ futures-timer = { version = "3.0.4", features = ["wasm-bindgen"] }
 
 [dev-dependencies]
 dioxus-ssr = "0.7.10"
-pollster = "1.0.1"
 tempfile = "3.27.0"
 
 [features]

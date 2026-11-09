@@ -30,7 +30,7 @@ pub trait Store {
     /// Saves the filebox and deletes its attachments that no block references.
     async fn save(&self, filebox: &Filebox) -> io::Result<()>;
     async fn delete(&self, id: Id) -> io::Result<()>;
-    /// Stores a new attachment and returns its id.
-    async fn put_attachment(&self, filebox: Id, bytes: &[u8]) -> io::Result<Id>;
+    /// Stores an attachment under an id chosen by the caller.
+    async fn put_attachment(&self, filebox: Id, attachment: Id, bytes: &[u8]) -> io::Result<()>;
     async fn get_attachment(&self, filebox: Id, attachment: Id) -> io::Result<Vec<u8>>;
 }
