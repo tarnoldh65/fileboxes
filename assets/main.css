@@ -1,10 +1,36 @@
 * { box-sizing: border-box; }
 html, body, #main { height: 100%; margin: 0; }
-body { font-family: system-ui, sans-serif; }
+body { font-family: system-ui, sans-serif; font-size: 14px; color: #222; }
 #main { display: flex; flex-direction: column; }
-.topbar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #ccc; }
-.sections { display: flex; gap: 4px; }
+button { font: inherit; cursor: pointer; }
+
+.topbar { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #ccc; background: #f4f4f4; }
+.filebox-select { min-width: 160px; }
+.sections { display: flex; gap: 2px; margin-left: 12px; flex: 1; overflow-x: auto; }
+.error { color: #b00; cursor: pointer; }
+
 .body { display: flex; flex: 1; min-height: 0; }
-.folders { width: 120px; border-right: 1px solid #ccc; }
-.pages { width: 200px; margin: 0; padding: 0; list-style: none; border-right: 1px solid #ccc; overflow-y: auto; }
-.page { flex: 1; padding: 12px; overflow-y: auto; }
+.folders { width: 140px; display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-right: 1px solid #ccc; background: #f9f9f9; overflow-y: auto; }
+.pages-panel { width: 200px; display: flex; flex-direction: column; border-right: 1px solid #ccc; overflow-y: auto; }
+.pages { margin: 0; padding: 6px 0; list-style: none; }
+.page { flex: 1; padding: 12px 20px; overflow-y: auto; }
+.page h1 { margin-top: 0; font-size: 22px; }
+.hint { color: #777; }
+
+.tab { border: 1px solid transparent; background: none; padding: 4px 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab:hover { background: #e8e8e8; }
+.tab.selected { background: #fff; border-color: #bbb; }
+.sections .tab.selected { border-bottom-color: #fff; }
+.folders .tab, .pages .tab { width: 100%; border-radius: 0; }
+.add { border: none; background: none; color: #555; padding: 4px 10px; }
+.add:hover { color: #000; }
+.rename { font: inherit; padding: 3px 6px; }
+
+.overlay { position: fixed; inset: 0; z-index: 10; }
+.overlay.dim { background: rgba(0, 0, 0, 0.3); }
+.menu { position: fixed; z-index: 11; display: flex; flex-direction: column; background: #fff; border: 1px solid #bbb; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); }
+.menu button { border: none; background: none; padding: 6px 16px; text-align: left; }
+.menu button:hover { background: #eee; }
+.dialog { position: fixed; z-index: 11; top: 30%; left: 50%; transform: translateX(-50%); background: #fff; padding: 16px 20px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); }
+.dialog button { margin-right: 8px; }
+.danger { background: #c33; color: #fff; border: 1px solid #a22; }

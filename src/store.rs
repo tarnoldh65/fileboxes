@@ -15,7 +15,7 @@ pub const FILEBOX_FILE: &str = "filebox.json";
 pub const ATTACHMENTS_DIR: &str = "attachments";
 
 /// The id and name of a stored filebox, read without its contents.
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Summary {
     pub id: Id,
     pub name: Name,

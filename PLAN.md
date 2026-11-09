@@ -122,14 +122,14 @@ Success criteria (unit tests):
 
 ### Phase 4 - Navigation UI
 
-- [ ] Filebox dropdown, section tabs on top, folder tabs on the side, page list panel.
-- [ ] Create, rename, and delete at every level from the UI; selection persists while
+- [x] Filebox dropdown, section tabs on top, folder tabs on the side, page list panel.
+- [x] Create, rename, and delete at every level from the UI; selection persists while
       switching between fileboxes.
-- [ ] Debounced autosave (1 second after the last edit).
-- [ ] Desktop: choose the storage folder with a folder picker, saved to the config file.
+- [x] Debounced autosave (1 second after the last edit).
+- [x] Desktop: choose the storage folder with a folder picker, saved to the config file.
 
 Success criteria:
-- [ ] SSR tests: the rendered shell has the dropdown with all filebox names, one tab per
+- [x] SSR tests: the rendered shell has the dropdown with all filebox names, one tab per
       section and folder, and one list item per page, in order.
 - [ ] Manual: create a filebox with 2 sections, 3 folders, and 5 pages; restart; all of
       it is still there.

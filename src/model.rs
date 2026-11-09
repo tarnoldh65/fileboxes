@@ -42,6 +42,12 @@ impl Name {
     }
 }
 
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 impl TryFrom<String> for Name {
     type Error = Error;
 
@@ -101,6 +107,14 @@ pub enum Content {
     Code { text: String },
 }
 
+/// A section, folder, or page inside a filebox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Item {
+    Section(Id),
+    Folder(Id),
+    Page(Id),
+}
+
 impl Filebox {
     pub fn new(name: Name) -> Self {
         Self {
@@ -149,6 +163,50 @@ impl Filebox {
                 _ => None,
             })
             .collect()
+    }
+
+    pub fn name_of(&self, item: Item) -> Option<&Name> {
+        let folders = || self.sections.iter().flat_map(|s| &s.folders);
+        match item {
+            Item::Section(id) => self.sections.iter().find(|s| s.id == id).map(|s| &s.name),
+            Item::Folder(id) => folders().find(|f| f.id == id).map(|f| &f.name),
+            Item::Page(id) => folders()
+                .flat_map(|f| &f.pages)
+                .find(|p| p.id == id)
+                .map(|p| &p.title),
+        }
+    }
+
+    pub fn rename(&mut self, item: Item, name: Name) -> Result<(), Error> {
+        match item {
+            Item::Section(id) => find_mut(&mut self.sections, id)?.name = name,
+            Item::Folder(id) => self.folder_mut(id)?.name = name,
+            Item::Page(id) => {
+                self.folders_mut()
+                    .find_map(|f| find_mut(&mut f.pages, id).ok())
+                    .ok_or(Error::NotFound)?
+                    .title = name
+            }
+        }
+        Ok(())
+    }
+
+    /// Deletes an item and everything inside it.
+    pub fn delete(&mut self, item: Item) -> Result<(), Error> {
+        match item {
+            Item::Section(id) => remove(&mut self.sections, id).map(drop),
+            Item::Folder(id) => self
+                .sections
+                .iter_mut()
+                .find_map(|s| remove(&mut s.folders, id).ok())
+                .map(drop)
+                .ok_or(Error::NotFound),
+            Item::Page(id) => self
+                .folders_mut()
+                .find_map(|f| remove(&mut f.pages, id).ok())
+                .map(drop)
+                .ok_or(Error::NotFound),
+        }
     }
 
     fn folders_mut(&mut self) -> impl Iterator<Item = &mut Folder> {
@@ -422,6 +480,53 @@ mod tests {
         ];
         let json = serde_json::to_string(&fb).unwrap();
         assert_eq!(serde_json::from_str::<Filebox>(&json).unwrap(), fb);
+    }
+
+    #[test]
+    fn rename_item_at_every_level() {
+        let mut fb = sample();
+        let before = fb.clone();
+        let section = Item::Section(fb.sections[1].id);
+        let folder = Item::Folder(fb.sections[1].folders[0].id);
+        let page = Item::Page(fb.sections[1].folders[0].pages[1].id);
+        for item in [section, folder, page] {
+            fb.rename(item, name("New")).unwrap();
+            assert_eq!(fb.name_of(item).unwrap().as_str(), "New");
+        }
+        assert_eq!(fb.sections[0], before.sections[0]);
+        assert_eq!(fb.sections[1].folders[1], before.sections[1].folders[1]);
+        assert_eq!(
+            fb.sections[1].folders[0].pages[0],
+            before.sections[1].folders[0].pages[0]
+        );
+    }
+
+    #[test]
+    fn delete_item_at_every_level() {
+        let mut fb = sample();
+        let page = fb.sections[1].folders[1].pages[0].id;
+        let folder = fb.sections[1].folders[0].id;
+        let section = fb.sections[0].id;
+        fb.delete(Item::Page(page)).unwrap();
+        assert_eq!(page_titles(&fb.sections[1].folders[1]), ["S2F2P2"]);
+        fb.delete(Item::Folder(folder)).unwrap();
+        assert_eq!(fb.sections[1].folders.len(), 1);
+        fb.delete(Item::Section(section)).unwrap();
+        assert_eq!(fb.sections.len(), 1);
+        assert_eq!(fb.sections[0].name.as_str(), "S2");
+    }
+
+    #[test]
+    fn missing_items_are_not_found() {
+        let mut fb = sample();
+        let before = fb.clone();
+        let id = Uuid::new_v4();
+        for item in [Item::Section(id), Item::Folder(id), Item::Page(id)] {
+            assert_eq!(fb.name_of(item), None);
+            assert_eq!(fb.rename(item, name("x")), Err(Error::NotFound));
+            assert_eq!(fb.delete(item), Err(Error::NotFound));
+        }
+        assert_eq!(fb, before);
     }
 
     #[test]
