@@ -172,11 +172,11 @@ Success criteria (unit tests):
       using base path `/fileboxes`, then deploy to GitHub Pages.
 
 Success criteria:
-- [ ] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
+- [x] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
 - [ ] Manual: in Chrome, Edge, and Firefox, data persists across reloads, and
       export/import works.
 - [ ] Manual: an export from desktop imports on web, and the reverse.
-- [ ] The OPFS backend passes the same storage test suite (run with
+- [x] The OPFS backend passes the same storage test suite (run with
       `wasm-bindgen-test` in headless Chrome in CI).
 
 ### Phase 8 - Finish
