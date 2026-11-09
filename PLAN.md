@@ -166,9 +166,9 @@ Success criteria (unit tests):
 
 ### Phase 7 - Web build and GitHub Pages
 
-- [ ] OPFS backend implementing `Store`.
-- [ ] Browser export (download) and import (file upload).
-- [ ] `deploy.yml`: on push to `main`, build with `dx bundle --platform web --release`
+- [x] OPFS backend implementing `Store`.
+- [x] Browser export (download) and import (file upload).
+- [x] `deploy.yml`: on push to `main`, build with `dx bundle --platform web --release`
       using base path `/fileboxes`, then deploy to GitHub Pages.
 
 Success criteria:
