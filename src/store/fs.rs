@@ -92,11 +92,14 @@ pub struct Config {
 }
 
 impl Default for Config {
+    /// `Documents/Fileboxes`, or `~/Fileboxes` where there is no Documents folder
+    /// (common on Linux).
     fn default() -> Self {
+        let parent = dirs::document_dir()
+            .or_else(dirs::home_dir)
+            .expect("no home folder");
         Self {
-            root: dirs::document_dir()
-                .expect("no documents folder")
-                .join("Fileboxes"),
+            root: parent.join("Fileboxes"),
         }
     }
 }
