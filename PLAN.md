@@ -99,8 +99,8 @@ Success criteria:
 ### Phase 2 - Data model
 
 - [x] Structs and `Block` enum per the Data Model section.
-- [x] Operations: create, rename, delete, and reorder at every level; move a page to
-      another folder; move a folder to another section.
+- [x] Operations: create, rename, delete, and reorder at every level. (Moving pages
+      and folders between parents was built here and removed in Phase 8: no UI used it.)
 
 Success criteria (unit tests):
 - [x] Each operation changes only its target (siblings and order are preserved).
@@ -172,17 +172,17 @@ Success criteria (unit tests):
       using base path `/fileboxes`, then deploy to GitHub Pages.
 
 Success criteria:
-- [ ] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
+- [x] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
 - [ ] Manual: in Chrome, Edge, and Firefox, data persists across reloads, and
       export/import works.
 - [ ] Manual: an export from desktop imports on web, and the reverse.
-- [ ] The OPFS backend passes the same storage test suite (run with
+- [x] The OPFS backend passes the same storage test suite (run with
       `wasm-bindgen-test` in headless Chrome in CI).
 
 ### Phase 8 - Finish
 
-- [ ] Final README pass (build, run, test, deploy, where data is stored).
-- [ ] Remove anything unused.
+- [x] Final README pass (build, run, test, deploy, where data is stored).
+- [x] Remove anything unused.
 
 Success criteria:
 - [ ] Every checkbox above is checked, and CI and deploy are green on `main`.

@@ -3,3 +3,7 @@ name = "fileboxes"
 
 [web.app]
 title = "Fileboxes"
+
+[bundle]
+identifier = "io.github.tarnoldh65.fileboxes"
+publisher = "tarnoldh65"
