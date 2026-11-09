@@ -150,7 +150,7 @@ Success criteria:
 - [x] Unit tests: the sanitizer keeps every supported format and strips `<script>`,
       event handlers, and `javascript:` links; table row/column edits keep the grid
       rectangular.
-- [ ] Manual: a page with every block type and every text format survives a restart
+- [x] Manual: a page with every block type and every text format survives a restart
       unchanged.
 
 ### Phase 6 - Export and import
