@@ -131,7 +131,7 @@ Success criteria (unit tests):
 Success criteria:
 - [x] SSR tests: the rendered shell has the dropdown with all filebox names, one tab per
       section and folder, and one list item per page, in order.
-- [ ] Manual: create a filebox with 2 sections, 3 folders, and 5 pages; restart; all of
+- [x] Manual: create a filebox with 2 sections, 3 folders, and 5 pages; restart; all of
       it is still there.
 
 ### Phase 5 - Page editing
