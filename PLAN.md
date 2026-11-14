@@ -173,9 +173,9 @@ Success criteria (unit tests):
 
 Success criteria:
 - [x] Pushing to `main` publishes the app at `https://tarnoldh65.github.io/fileboxes/`.
-- [ ] Manual: in Chrome, Edge, and Firefox, data persists across reloads, and
+- [x] Manual: in Chrome, Edge, and Firefox, data persists across reloads, and
       export/import works.
-- [ ] Manual: an export from desktop imports on web, and the reverse.
+- [x] Manual: an export from desktop imports on web, and the reverse.
 - [x] The OPFS backend passes the same storage test suite (run with
       `wasm-bindgen-test` in headless Chrome in CI).
 
@@ -185,4 +185,98 @@ Success criteria:
 - [x] Remove anything unused.
 
 Success criteria:
-- [ ] Every checkbox above is checked, and CI and deploy are green on `main`.
+- [x] Every checkbox above is checked, and CI and deploy are green on `main`.
+
+## Enhancements
+
+Status: APPROVED 2026-11-14.
+
+Decisions (2026-11-14): pages become Markdown files at `pages/<page-id>.md`; editing
+stays WYSIWYG, plus a Markdown source view; color, size, alignment, and underline are
+stored as inline HTML inside the Markdown.
+
+New libraries: `pulldown-cmark` 0.13.6 (Markdown to HTML, with tables) and `htmd` 0.5.6
+(HTML to Markdown). Both are pure Rust and build for the web.
+
+### Page Markdown format
+
+~~~
+<!-- block -->
+Some **bold** and <span style="color:#c00000">red</span> text.
+
+- a bullet
+
+<!-- block half -->
+| Name | Notes |
+| --- | --- |
+| **Alpha** | first<br>second |
+
+<!-- block -->
+![A caption](../attachments/5d1e...aa)
+
+<!-- block -->
+[report.pdf](../attachments/9b7c...04)
+
+<!-- block half -->
+```rust
+let x = 1;
+```
+~~~
+
+- A `<!-- block -->` or `<!-- block half -->` comment starts each block, so block
+  boundaries and widths survive. Viewers do not show the comments.
+- Text blocks are Markdown, with inline HTML only for color, size, alignment, and underline.
+- Tables are pipe tables. Markdown tables need a header row, so the first row becomes the
+  header (shown bold in the app too). Line breaks inside a cell become `<br>`.
+- Images and files link to `../attachments/<id>`, so the links work relative to the page file.
+- Code blocks are fenced blocks.
+- A file with no block comments (for example, written by another tool) loads as one
+  text block.
+
+### Phase 9 - Formatting in table cells
+
+- [x] Each table cell becomes a small rich-text area. The existing toolbar formats
+      whichever cell has the cursor, with the same buttons as text blocks.
+- [x] Cell HTML is sanitized the same way as text blocks.
+- [x] Existing plain-text cells are escaped as HTML on load, so `<` and `&` stay as typed.
+
+Success criteria:
+- [x] Unit tests: cell HTML is sanitized; old plain-text cells load escaped; table
+      row/column edits still keep the grid rectangular.
+- [x] SSR test: cells render as editable areas containing their formatted HTML.
+- [ ] Manual: format cell text with every toolbar button; restart; the formatting is kept.
+
+### Phase 10 - Markdown page storage
+
+- [ ] `markdown` module: page blocks to Markdown and back, per the format above. Text
+      from the Markdown side is sanitized like editor input.
+- [ ] `filebox.json` keeps only structure (ids, names, order); page content moves to
+      `pages/<page-id>.md` in both stores. Only pages that changed are rewritten, and
+      saving deletes the files of deleted pages.
+- [ ] Old `filebox.json` files with blocks inside still load; the next save moves the
+      blocks to `.md` files.
+- [ ] `.filebox` export and import include `pages/`.
+
+Success criteria:
+- [ ] Unit tests: every block type and every text format survives page -> Markdown ->
+      page; converting twice gives the same Markdown; a file without block comments
+      loads as one text block; `<script>` and `javascript:` links in Markdown are stripped.
+- [ ] Shared storage suite (desktop and browser): page files land at
+      `pages/<id>.md`; deleting a page removes its file; an old-format `filebox.json`
+      loads and is migrated on save. Browser suite passes in CI.
+- [ ] Manual: a page opened in VS Code or on GitHub reads as normal Markdown, with
+      images and file links pointing at the attachments.
+
+### Phase 11 - Markdown source view
+
+- [ ] A "Markdown" toggle on each page swaps the blocks for a text area holding the
+      page's Markdown. Edits there update the page; toggling back shows the result in
+      the normal editor.
+
+Success criteria:
+- [ ] Unit test: editing the Markdown (adding a block, changing a table cell, changing
+      text formatting) produces the expected blocks.
+- [ ] SSR test: with the toggle on, the page shows the Markdown text area instead of
+      the blocks.
+- [ ] Manual: switch back and forth while editing; nothing is lost, and the result
+      survives a restart.

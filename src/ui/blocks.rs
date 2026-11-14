@@ -146,23 +146,47 @@ fn BlockView(block: Block) -> Element {
     }
 }
 
+/// An editable rich-text area that the toolbar formats. Reports each change as
+/// unsanitized HTML; callers sanitize before storing.
+#[component]
+fn RichText(
+    dom_id: String,
+    class: &'static str,
+    html: String,
+    onchange: EventHandler<String>,
+) -> Element {
+    // Set the HTML only once: replacing it while typing would move the cursor.
+    let initial = use_hook(|| html);
+    let script = format!("return document.getElementById('{dom_id}').innerHTML;");
+    rsx! {
+        div {
+            id: "{dom_id}",
+            class,
+            contenteditable: "true",
+            dangerous_inner_html: "{initial}",
+            oninput: move |_| {
+                let script = script.clone();
+                async move {
+                    if let Ok(html) = document::eval(&script).join::<String>().await {
+                        onchange.call(html);
+                    }
+                }
+            },
+        }
+    }
+}
+
 #[component]
 fn TextBlock(id: Id, html: String) -> Element {
     let mut state = use_context::<AppState>();
-    // Set the HTML only once: replacing it while typing would move the cursor.
-    let initial = use_hook(|| html);
     rsx! {
-        div {
-            id: "block-{id}",
+        RichText {
+            dom_id: "block-{id}",
             class: "text",
-            contenteditable: "true",
-            dangerous_inner_html: "{initial}",
-            oninput: move |_| async move {
-                let script = format!("return document.getElementById('block-{id}').innerHTML;");
-                if let Ok(html) = document::eval(&script).join::<String>().await {
-                    let html = sanitize(&html);
-                    state.edit_block(id, |b| b.content = Content::Text { html });
-                }
+            html,
+            onchange: move |html: String| {
+                let html = sanitize(&html);
+                state.edit_block(id, |b| b.content = Content::Text { html });
             },
         }
     }
@@ -181,16 +205,15 @@ fn TableBlock(id: Id, table: Table) -> Element {
     let state = use_context::<AppState>();
     rsx! {
         table { class: "grid",
-            for (r, row) in table.rows.iter().enumerate() {
+            for (r, row) in table.cells.iter().enumerate() {
                 tr {
                     for (c, cell) in row.iter().enumerate() {
                         td {
-                            input {
-                                value: "{cell}",
-                                oninput: move |e| {
-                                    let value = e.value();
-                                    edit_table(state, id, |t| t.rows[r][c] = value);
-                                },
+                            RichText {
+                                dom_id: "cell-{id}-{r}-{c}",
+                                class: "cell",
+                                html: cell.clone(),
+                                onchange: move |html: String| edit_table(state, id, |t| t.set(r, c, &html)),
                             }
                         }
                     }
