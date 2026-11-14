@@ -433,4 +433,37 @@ mod tests {
             !html.contains("script") && !html.contains("javascript") && !html.contains("onerror")
         );
     }
+
+    #[test]
+    fn editing_the_markdown_changes_the_blocks() {
+        let mut table = Table::default();
+        table.set(1, 0, "old");
+        let md = to_markdown(&[
+            text("<p><b>Bold</b> words</p>"),
+            Block::new(Content::Table(table)),
+        ]);
+        let md = md
+            .replace("**Bold**", "*Bold*")
+            .replace("| old |", "| **new** |")
+            + "<!-- block half -->
+```
+x = 1
+```
+";
+
+        let mut expected = Table::default();
+        expected.set(1, 0, "<strong>new</strong>");
+        let mut code = Block::new(Content::Code {
+            text: "x = 1".into(),
+        });
+        code.half_width = true;
+        assert_eq!(
+            from_markdown(&md),
+            [
+                text("<p><em>Bold</em> words</p>"),
+                Block::new(Content::Table(expected)),
+                code
+            ]
+        );
+    }
 }

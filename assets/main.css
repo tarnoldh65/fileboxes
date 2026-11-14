@@ -15,6 +15,9 @@ button { font: inherit; cursor: pointer; }
 .pages { margin: 0; padding: 6px 0; list-style: none; }
 .page { flex: 1; padding: 12px 20px; overflow-y: auto; }
 .page h1 { margin-top: 0; font-size: 22px; }
+.page-head { display: flex; align-items: baseline; gap: 12px; }
+.page-head h1 { flex: 1; }
+.page-head button.selected { background: #ddd; }
 .hint { color: #777; }
 
 .tab { border: 1px solid transparent; background: none; padding: 4px 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -65,6 +68,7 @@ button { font: inherit; cursor: pointer; }
 .caption { width: 100%; border: none; color: #555; font: inherit; font-style: italic; padding: 2px 0; }
 .file { padding: 6px 12px; border: 1px solid #bbb; background: #f7f7f7; }
 .code { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 13px; padding: 8px; background: #f6f6f6; border: 1px solid #ddd; white-space: pre; tab-size: 4; resize: vertical; }
+.markdown { height: 70vh; }
 
 .add-blocks { display: flex; gap: 6px; margin-top: 16px; padding-top: 8px; border-top: 1px dashed #ddd; }
 .add-blocks button, .button { padding: 3px 10px; border: 1px solid #bbb; background: #f7f7f7; cursor: pointer; font: inherit; }

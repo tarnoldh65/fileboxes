@@ -261,25 +261,25 @@ Success criteria:
 - [x] Unit tests: every block type and every text format survives page -> Markdown ->
       page; converting twice gives the same Markdown; a file without block comments
       loads as one text block; `<script>` and `javascript:` links in Markdown are stripped.
-- [ ] Shared storage suite (desktop and browser): pages survive a reload from a second
+- [x] Shared storage suite (desktop and browser): pages survive a reload from a second
       store on the same storage, including edits and deleted pages. Browser suite
       passes in CI.
 - [x] Desktop store tests: page files land at `pages/<id>.md`; unchanged pages are not
       rewritten; deleting a page removes its file; an old-format `filebox.json` loads
       and is migrated on save. An old-format `.filebox` archive imports.
-- [ ] Manual: a page opened in VS Code or on GitHub reads as normal Markdown, with
+- [x] Manual: a page opened in VS Code or on GitHub reads as normal Markdown, with
       images and file links pointing at the attachments.
 
 ### Phase 11 - Markdown source view
 
-- [ ] A "Markdown" toggle on each page swaps the blocks for a text area holding the
+- [x] A "Markdown" toggle on each page swaps the blocks for a text area holding the
       page's Markdown. Edits there update the page; toggling back shows the result in
       the normal editor.
 
 Success criteria:
-- [ ] Unit test: editing the Markdown (adding a block, changing a table cell, changing
+- [x] Unit test: editing the Markdown (adding a block, changing a table cell, changing
       text formatting) produces the expected blocks.
-- [ ] SSR test: with the toggle on, the page shows the Markdown text area instead of
+- [x] SSR test: with the toggle on, the page shows the Markdown text area instead of
       the blocks.
 - [ ] Manual: switch back and forth while editing; nothing is lost, and the result
       survives a restart.
