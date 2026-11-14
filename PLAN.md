@@ -244,7 +244,7 @@ Success criteria:
 - [x] Unit tests: cell HTML is sanitized; old plain-text cells load escaped; table
       row/column edits still keep the grid rectangular.
 - [x] SSR test: cells render as editable areas containing their formatted HTML.
-- [ ] Manual: format cell text with every toolbar button; restart; the formatting is kept.
+- [x] Manual: format cell text with every toolbar button; restart; the formatting is kept.
 
 ### Phase 10 - Markdown page storage
 
