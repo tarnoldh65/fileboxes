@@ -1,4 +1,5 @@
 pub mod archive;
+pub mod markdown;
 pub mod model;
 pub mod sanitize;
 pub mod store;

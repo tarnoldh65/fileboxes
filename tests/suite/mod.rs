@@ -7,7 +7,8 @@ use fileboxes::model::{Block, Content, Filebox, Folder, Id, Name, Page, Section}
 use fileboxes::store::Store;
 use uuid::Uuid;
 
-pub async fn run(store: &impl Store) {
+/// `reopened` is a second store on the same storage, to check what was really written.
+pub async fn run<S: Store>(store: &S, reopened: &S) {
     save_then_load_round_trips(store).await;
     save_overwrites_previous_version(store).await;
     attachments_round_trip_byte_for_byte(store).await;
@@ -15,6 +16,7 @@ pub async fn run(store: &impl Store) {
     list_returns_every_filebox_sorted_by_name(store).await;
     delete_removes_filebox(store).await;
     missing_items_are_errors(store).await;
+    pages_persist_for_a_reopened_store(store, reopened).await;
 }
 
 fn name(s: &str) -> Name {
@@ -125,4 +127,23 @@ async fn missing_items_are_errors(store: &impl Store) {
             .await
             .is_err()
     );
+}
+
+async fn pages_persist_for_a_reopened_store<S: Store>(store: &S, reopened: &S) {
+    let mut fb = filebox("Reopened");
+    let mut second = Page::new(name("Second"));
+    second.blocks.push(Block::new(Content::Code {
+        text: "x = 1".into(),
+    }));
+    fb.sections[0].folders[0].pages.push(second);
+    store.save(&fb).await.unwrap();
+    assert_eq!(reopened.load(fb.id).await.unwrap(), fb);
+
+    // Edit one page and delete the other; the reopened store sees both changes.
+    blocks(&mut fb).push(Block::new(Content::Text {
+        html: "<p>More</p>".into(),
+    }));
+    fb.sections[0].folders[0].pages.pop();
+    store.save(&fb).await.unwrap();
+    assert_eq!(reopened.load(fb.id).await.unwrap(), fb);
 }

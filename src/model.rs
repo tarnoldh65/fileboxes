@@ -89,14 +89,25 @@ pub struct Folder {
 pub struct Page {
     pub id: Id,
     pub title: Name,
+    /// Stored as Markdown in `pages/<id>.md`, not in `filebox.json`. Older files still
+    /// have blocks here, so they are read when present.
+    #[serde(default, skip_serializing)]
     pub blocks: Vec<Block>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The id only tells blocks apart on screen. It is not stored, so loading gives new ids.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub id: Id,
     pub half_width: bool,
     pub content: Content,
+}
+
+/// Blocks are equal when they hold the same thing, whatever their ids.
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.half_width == other.half_width && self.content == other.content
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -207,10 +218,7 @@ impl Filebox {
 
     /// Ids of every attachment referenced by an image or file block.
     pub fn attachments(&self) -> HashSet<Id> {
-        self.sections
-            .iter()
-            .flat_map(|s| &s.folders)
-            .flat_map(|f| &f.pages)
+        self.pages()
             .flat_map(|p| &p.blocks)
             .filter_map(|b| match b.content {
                 Content::Image { attachment, .. } | Content::File { attachment, .. } => {
@@ -219,6 +227,17 @@ impl Filebox {
                 _ => None,
             })
             .collect()
+    }
+
+    pub fn pages(&self) -> impl Iterator<Item = &Page> {
+        self.sections
+            .iter()
+            .flat_map(|s| &s.folders)
+            .flat_map(|f| &f.pages)
+    }
+
+    pub fn pages_mut(&mut self) -> impl Iterator<Item = &mut Page> {
+        self.folders_mut().flat_map(|f| &mut f.pages)
     }
 
     pub fn name_of(&self, item: Item) -> Option<&Name> {
@@ -469,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn json_round_trip_with_every_block_type() {
+    fn json_keeps_structure_and_reads_old_blocks() {
         let mut fb = sample();
         let mut half = Block::new(Content::Code {
             text: "fn main() {\n    println!(\"hi\");\n}".into(),
@@ -495,8 +514,18 @@ mod tests {
             }),
             half,
         ];
+        // Blocks are stored as Markdown, so JSON keeps only the structure...
         let json = serde_json::to_string(&fb).unwrap();
-        assert_eq!(serde_json::from_str::<Filebox>(&json).unwrap(), fb);
+        assert!(!json.contains("blocks"));
+        let mut structure = fb.clone();
+        structure.pages_mut().for_each(|p| p.blocks.clear());
+        assert_eq!(serde_json::from_str::<Filebox>(&json).unwrap(), structure);
+
+        // ...but older files with blocks in the JSON still load them.
+        let mut old = serde_json::to_value(&fb).unwrap();
+        let blocks = serde_json::to_value(&fb.sections[0].folders[0].pages[0].blocks).unwrap();
+        old["sections"][0]["folders"][0]["pages"][0]["blocks"] = blocks;
+        assert_eq!(serde_json::from_value::<Filebox>(old).unwrap(), fb);
     }
 
     #[test]
