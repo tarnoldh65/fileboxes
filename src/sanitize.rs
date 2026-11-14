@@ -13,6 +13,14 @@ pub fn sanitize(html: &str) -> String {
         .to_string()
 }
 
+/// Escapes plain text so it displays as typed when used as HTML.
+pub fn escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,6 +85,18 @@ mod tests {
         assert_eq!(
             sanitize("<span style=\"color: red; position: fixed; background: url(x)\">x</span>"),
             "<span style=\"color:red\">x</span>"
+        );
+    }
+
+    #[test]
+    fn escape_makes_text_safe_html() {
+        assert_eq!(
+            escape("a < b & \"c\" > d"),
+            "a &lt; b &amp; &quot;c&quot; &gt; d"
+        );
+        assert_eq!(
+            sanitize(&escape("<script>x</script>")),
+            "&lt;script&gt;x&lt;/script&gt;"
         );
     }
 }

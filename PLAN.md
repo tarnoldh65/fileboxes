@@ -235,15 +235,15 @@ let x = 1;
 
 ### Phase 9 - Formatting in table cells
 
-- [ ] Each table cell becomes a small rich-text area. The existing toolbar formats
+- [x] Each table cell becomes a small rich-text area. The existing toolbar formats
       whichever cell has the cursor, with the same buttons as text blocks.
-- [ ] Cell HTML is sanitized the same way as text blocks.
-- [ ] Existing plain-text cells are escaped as HTML on load, so `<` and `&` stay as typed.
+- [x] Cell HTML is sanitized the same way as text blocks.
+- [x] Existing plain-text cells are escaped as HTML on load, so `<` and `&` stay as typed.
 
 Success criteria:
-- [ ] Unit tests: cell HTML is sanitized; old plain-text cells load escaped; table
+- [x] Unit tests: cell HTML is sanitized; old plain-text cells load escaped; table
       row/column edits still keep the grid rectangular.
-- [ ] SSR test: cells render as editable areas containing their formatted HTML.
+- [x] SSR test: cells render as editable areas containing their formatted HTML.
 - [ ] Manual: format cell text with every toolbar button; restart; the formatting is kept.
 
 ### Phase 10 - Markdown page storage

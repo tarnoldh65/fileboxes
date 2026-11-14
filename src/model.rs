@@ -6,6 +6,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::sanitize::{escape, sanitize};
+
 pub type Id = Uuid;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -115,47 +117,79 @@ pub enum Item {
     Page(Id),
 }
 
-/// A grid of text cells. Every row has the same length, and there is always at least
-/// one row and one column.
+/// A grid of rich-text cells, each holding sanitized HTML. Every row has the same
+/// length, and there is always at least one row and one column.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(from = "StoredTable")]
 pub struct Table {
-    pub rows: Vec<Vec<String>>,
+    pub cells: Vec<Vec<String>>,
+}
+
+/// A table as saved. Files from before cells held formatting have plain-text `rows`.
+#[derive(Deserialize)]
+struct StoredTable {
+    #[serde(default)]
+    cells: Vec<Vec<String>>,
+    #[serde(default)]
+    rows: Vec<Vec<String>>,
+}
+
+impl From<StoredTable> for Table {
+    fn from(stored: StoredTable) -> Self {
+        if !stored.cells.is_empty() {
+            return Self {
+                cells: stored.cells,
+            };
+        }
+        Self {
+            cells: stored
+                .rows
+                .iter()
+                .map(|row| row.iter().map(|text| escape(text)).collect())
+                .collect(),
+        }
+    }
 }
 
 impl Default for Table {
     fn default() -> Self {
         Self {
-            rows: vec![vec![String::new(); 2]; 2],
+            cells: vec![vec![String::new(); 2]; 2],
         }
     }
 }
 
 impl Table {
     pub fn columns(&self) -> usize {
-        self.rows[0].len()
+        self.cells[0].len()
+    }
+
+    /// Sets a cell's HTML, sanitized like text blocks.
+    pub fn set(&mut self, row: usize, column: usize, html: &str) {
+        self.cells[row][column] = sanitize(html);
     }
 
     pub fn add_row(&mut self) {
-        self.rows.push(vec![String::new(); self.columns()]);
+        self.cells.push(vec![String::new(); self.columns()]);
     }
 
     pub fn add_column(&mut self) {
-        for row in &mut self.rows {
+        for row in &mut self.cells {
             row.push(String::new());
         }
     }
 
     /// Removes the last row, unless it is the only one.
     pub fn remove_row(&mut self) {
-        if self.rows.len() > 1 {
-            self.rows.pop();
+        if self.cells.len() > 1 {
+            self.cells.pop();
         }
     }
 
     /// Removes the last column, unless it is the only one.
     pub fn remove_column(&mut self) {
         if self.columns() > 1 {
-            for row in &mut self.rows {
+            for row in &mut self.cells {
                 row.pop();
             }
         }
@@ -446,7 +480,10 @@ mod tests {
                 html: "<p><b>Bold</b> and <i>italic</i></p>".into(),
             }),
             Block::new(Content::Table(Table {
-                rows: vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into()]],
+                cells: vec![
+                    vec!["<b>a</b>".into(), "b".into()],
+                    vec!["c".into(), "d".into()],
+                ],
             })),
             Block::new(Content::Image {
                 attachment: Uuid::new_v4(),
@@ -510,8 +547,8 @@ mod tests {
     }
 
     fn assert_rectangular(table: &Table, rows: usize, columns: usize) {
-        assert_eq!(table.rows.len(), rows);
-        assert!(table.rows.iter().all(|r| r.len() == columns));
+        assert_eq!(table.cells.len(), rows);
+        assert!(table.cells.iter().all(|r| r.len() == columns));
     }
 
     #[test]
@@ -531,7 +568,7 @@ mod tests {
     #[test]
     fn table_keeps_at_least_one_cell_and_existing_text() {
         let mut table = Table::default();
-        table.rows[0][0] = "kept".into();
+        table.set(0, 0, "kept");
         for _ in 0..3 {
             table.remove_row();
             table.remove_column();
@@ -540,7 +577,7 @@ mod tests {
         table.add_row();
         table.add_column();
         assert_rectangular(&table, 2, 2);
-        assert_eq!(table.rows[0][0], "kept");
+        assert_eq!(table.cells[0][0], "kept");
     }
 
     #[test]
@@ -556,7 +593,26 @@ mod tests {
         let block = Content::Table(Table::default());
         assert_eq!(
             serde_json::to_string(&block).unwrap(),
-            r#"{"type":"table","rows":[["",""],["",""]]}"#
+            r#"{"type":"table","cells":[["",""],["",""]]}"#
+        );
+    }
+
+    #[test]
+    fn table_set_sanitizes_cell_html() {
+        let mut table = Table::default();
+        table.set(1, 1, "<i>ok</i><script>alert(1)</script>");
+        assert_eq!(table.cells[1][1], "<i>ok</i>");
+    }
+
+    #[test]
+    fn old_plain_text_table_cells_load_escaped() {
+        let json = r#"{"type":"table","rows":[["a < b & c","<b>not bold</b>"]]}"#;
+        let Content::Table(table) = serde_json::from_str(json).unwrap() else {
+            panic!("not a table");
+        };
+        assert_eq!(
+            table.cells,
+            [["a &lt; b &amp; c", "&lt;b&gt;not bold&lt;/b&gt;"]]
         );
     }
 

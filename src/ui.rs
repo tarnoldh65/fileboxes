@@ -427,7 +427,7 @@ mod tests {
         let mut fb = sample();
         let mut table = Table::default();
         table.add_column();
-        table.rows[1][2] = "cell text".into();
+        table.set(1, 2, "<b>cell</b> text");
         let mut code = Block::new(Content::Code {
             text: "let x = 1;".into(),
         });
@@ -452,13 +452,13 @@ mod tests {
             &html,
             &[
                 "<p><b>Bold</b> words</p>",
-                "value=\"cell text\"",
+                "<b>cell</b> text</div>",
                 "value=\"A caption\"",
                 ">report.pdf</button>",
                 "value=\"let x = 1;\"></textarea>",
             ],
         );
-        assert!(html.contains("contenteditable=\"true\""));
+        assert_eq!(html.matches("contenteditable=\"true\"").count(), 1 + 6);
         assert_eq!(html.matches("<td>").count(), 6);
         assert_eq!(html.matches("class=\"block half\"").count(), 1);
         assert_eq!(html.matches("class=\"block\"").count(), 4);
