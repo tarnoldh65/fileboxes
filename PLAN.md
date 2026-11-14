@@ -244,26 +244,29 @@ Success criteria:
 - [x] Unit tests: cell HTML is sanitized; old plain-text cells load escaped; table
       row/column edits still keep the grid rectangular.
 - [x] SSR test: cells render as editable areas containing their formatted HTML.
-- [ ] Manual: format cell text with every toolbar button; restart; the formatting is kept.
+- [x] Manual: format cell text with every toolbar button; restart; the formatting is kept.
 
 ### Phase 10 - Markdown page storage
 
-- [ ] `markdown` module: page blocks to Markdown and back, per the format above. Text
+- [x] `markdown` module: page blocks to Markdown and back, per the format above. Text
       from the Markdown side is sanitized like editor input.
-- [ ] `filebox.json` keeps only structure (ids, names, order); page content moves to
+- [x] `filebox.json` keeps only structure (ids, names, order); page content moves to
       `pages/<page-id>.md` in both stores. Only pages that changed are rewritten, and
       saving deletes the files of deleted pages.
-- [ ] Old `filebox.json` files with blocks inside still load; the next save moves the
+- [x] Old `filebox.json` files with blocks inside still load; the next save moves the
       blocks to `.md` files.
-- [ ] `.filebox` export and import include `pages/`.
+- [x] `.filebox` export and import include `pages/`.
 
 Success criteria:
-- [ ] Unit tests: every block type and every text format survives page -> Markdown ->
+- [x] Unit tests: every block type and every text format survives page -> Markdown ->
       page; converting twice gives the same Markdown; a file without block comments
       loads as one text block; `<script>` and `javascript:` links in Markdown are stripped.
-- [ ] Shared storage suite (desktop and browser): page files land at
-      `pages/<id>.md`; deleting a page removes its file; an old-format `filebox.json`
-      loads and is migrated on save. Browser suite passes in CI.
+- [ ] Shared storage suite (desktop and browser): pages survive a reload from a second
+      store on the same storage, including edits and deleted pages. Browser suite
+      passes in CI.
+- [x] Desktop store tests: page files land at `pages/<id>.md`; unchanged pages are not
+      rewritten; deleting a page removes its file; an old-format `filebox.json` loads
+      and is migrated on save. An old-format `.filebox` archive imports.
 - [ ] Manual: a page opened in VS Code or on GitHub reads as normal Markdown, with
       images and file links pointing at the attachments.
 

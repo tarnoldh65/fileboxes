@@ -1,6 +1,23 @@
 //! Rich-text HTML sanitizing.
 
-use std::collections::HashSet;
+/// The style properties the editor's toolbar produces.
+const STYLES: [&str; 3] = ["color", "font-size", "text-align"];
+
+/// Keeps only supported properties, in compact `property:value` form. `None` drops the
+/// attribute when nothing is left.
+fn filter_style(style: &str) -> Option<String> {
+    let kept: Vec<String> = style
+        .split(';')
+        .filter_map(|declaration| {
+            let (property, value) = declaration.split_once(':')?;
+            let property = property.trim().to_ascii_lowercase();
+            STYLES
+                .contains(&property.as_str())
+                .then(|| format!("{property}:{}", value.trim()))
+        })
+        .collect();
+    (!kept.is_empty()).then(|| kept.join(";"))
+}
 
 /// Keeps formatting markup (bold, italic, underline, lists, links, and the color, size,
 /// and alignment styles the editor produces) and strips scripts, event handlers, and
@@ -8,7 +25,12 @@ use std::collections::HashSet;
 pub fn sanitize(html: &str) -> String {
     ammonia::Builder::default()
         .add_generic_attributes(["style"])
-        .filter_style_properties(HashSet::from(["color", "font-size", "text-align"]))
+        .attribute_filter(|_, attribute, value| match attribute {
+            "style" => filter_style(value).map(Into::into),
+            _ => Some(value.into()),
+        })
+        // Links do not navigate inside the editor, and no `rel` keeps them plain Markdown.
+        .link_rel(None)
         .clean(html)
         .to_string()
 }
@@ -63,7 +85,7 @@ mod tests {
     fn keeps_safe_links() {
         assert_eq!(
             sanitize("<a href=\"https://example.com\">x</a>"),
-            "<a href=\"https://example.com\" rel=\"noopener noreferrer\">x</a>"
+            "<a href=\"https://example.com\">x</a>"
         );
     }
 
@@ -76,7 +98,7 @@ mod tests {
         );
         assert_eq!(
             sanitize("<a href=\"javascript:alert(1)\">x</a>"),
-            "<a rel=\"noopener noreferrer\">x</a>"
+            "<a>x</a>"
         );
     }
 
@@ -98,5 +120,18 @@ mod tests {
             sanitize(&escape("<script>x</script>")),
             "&lt;script&gt;x&lt;/script&gt;"
         );
+    }
+
+    #[test]
+    fn strips_empty_styles_and_old_link_rel() {
+        assert_eq!(
+            sanitize("<b style=\"\">x</b><i style=\"font-weight: bold\">y</i>"),
+            "<b>x</b><i>y</i>"
+        );
+        assert_eq!(
+            sanitize("<a href=\"https://e.com\" rel=\"noopener noreferrer\">z</a>"),
+            "<a href=\"https://e.com\">z</a>"
+        );
+        assert_eq!(sanitize("a style=\"\" b"), "a style=\"\" b");
     }
 }

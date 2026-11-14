@@ -11,6 +11,6 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 async fn opfs_store_passes_storage_suite() {
-    let store = OpfsStore::new(format!("test-{}", uuid::Uuid::new_v4()));
-    suite::run(&store).await;
+    let root = format!("test-{}", uuid::Uuid::new_v4());
+    suite::run(&OpfsStore::new(&root), &OpfsStore::new(&root)).await;
 }

@@ -56,6 +56,8 @@ button { font: inherit; cursor: pointer; }
 .grid td { border: 1px solid #ccc; padding: 0; }
 .grid .cell { min-width: 140px; min-height: 1.5em; padding: 4px 6px; outline: none; }
 .grid .cell p { margin: 0; }
+/* Markdown tables have a header row, so the first row is shown as one. */
+.grid tr:first-child .cell { font-weight: 600; background: #f6f6f6; }
 .table-tools { margin-top: 4px; }
 .table-tools button { font-size: 12px; }
 .image { margin: 0; }

@@ -1,16 +1,19 @@
 //! Filesystem storage backend (desktop).
 
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::{ATTACHMENTS_DIR, FILEBOX_FILE, Store, Summary};
+use super::{ATTACHMENTS_DIR, FILEBOX_FILE, PAGES_DIR, Store, Summary, Written, page_file};
+use crate::markdown::{from_markdown, to_markdown};
 use crate::model::{Filebox, Id};
 
 pub struct FsStore {
     root: PathBuf,
+    written: Written,
 }
 
 impl FsStore {
@@ -18,7 +21,10 @@ impl FsStore {
     pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
         let root = root.into();
         fs::create_dir_all(&root)?;
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            written: Written::default(),
+        })
     }
 
     fn dir(&self, filebox: Id) -> PathBuf {
@@ -28,6 +34,29 @@ impl FsStore {
     fn attachments_dir(&self, filebox: Id) -> PathBuf {
         self.dir(filebox).join(ATTACHMENTS_DIR)
     }
+}
+
+/// Writes then renames, so a crash never leaves a half-written file.
+fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    fs::write(&tmp, bytes)?;
+    fs::rename(tmp, path)
+}
+
+/// Deletes every file in `dir` whose name is not in `keep`.
+fn remove_others(dir: &Path, keep: &HashSet<String>) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        if !keep.contains(name) {
+            fs::remove_file(&path)?;
+        }
+    }
+    Ok(())
 }
 
 impl Store for FsStore {
@@ -44,27 +73,38 @@ impl Store for FsStore {
     }
 
     async fn load(&self, id: Id) -> io::Result<Filebox> {
-        let bytes = fs::read(self.dir(id).join(FILEBOX_FILE))?;
-        Ok(serde_json::from_slice(&bytes)?)
+        let dir = self.dir(id);
+        let mut filebox: Filebox = serde_json::from_slice(&fs::read(dir.join(FILEBOX_FILE))?)?;
+        for page in filebox.pages_mut() {
+            // Pages without a file are from before Markdown storage and keep their blocks.
+            if let Ok(md) = fs::read_to_string(dir.join(PAGES_DIR).join(page_file(page.id))) {
+                page.blocks = from_markdown(&md);
+                self.written.set(id, page.id, md);
+            }
+        }
+        Ok(filebox)
     }
 
     async fn save(&self, filebox: &Filebox) -> io::Result<()> {
         let dir = self.dir(filebox.id);
+        let pages = dir.join(PAGES_DIR);
+        fs::create_dir_all(&pages)?;
         fs::create_dir_all(dir.join(ATTACHMENTS_DIR))?;
-        // Write then rename so a crash never leaves a half-written file.
-        let tmp = dir.join(format!("{FILEBOX_FILE}.tmp"));
-        fs::write(&tmp, serde_json::to_vec_pretty(filebox)?)?;
-        fs::rename(tmp, dir.join(FILEBOX_FILE))?;
+        write_atomic(
+            &dir.join(FILEBOX_FILE),
+            &serde_json::to_vec_pretty(filebox)?,
+        )?;
 
-        let used = filebox.attachments();
-        for entry in fs::read_dir(dir.join(ATTACHMENTS_DIR))? {
-            let path = entry?.path();
-            let id = path.file_name().and_then(|n| n.to_str()?.parse().ok());
-            if !id.is_some_and(|id| used.contains(&id)) {
-                fs::remove_file(path)?;
+        for page in filebox.pages() {
+            let md = to_markdown(&page.blocks);
+            if !self.written.is_current(filebox.id, page.id, &md) {
+                write_atomic(&pages.join(page_file(page.id)), md.as_bytes())?;
+                self.written.set(filebox.id, page.id, md);
             }
         }
-        Ok(())
+        remove_others(&pages, &filebox.pages().map(|p| page_file(p.id)).collect())?;
+        let used = filebox.attachments().iter().map(Id::to_string).collect();
+        remove_others(&dir.join(ATTACHMENTS_DIR), &used)
     }
 
     async fn delete(&self, id: Id) -> io::Result<()> {
@@ -130,23 +170,108 @@ mod tests {
     use pollster::block_on;
 
     use super::*;
-    use crate::model::Name;
+    use crate::model::{Block, Content, Folder, Name, Page, Section};
 
     fn filebox(title: &str) -> Filebox {
         Filebox::new(Name::new(title).unwrap())
+    }
+
+    /// A filebox with one page holding one bold paragraph.
+    fn with_page() -> Filebox {
+        let mut fb = filebox("Notes");
+        let mut section = Section::new(Name::new("Section").unwrap());
+        let mut folder = Folder::new(Name::new("Folder").unwrap());
+        let mut page = Page::new(Name::new("Page").unwrap());
+        page.blocks.push(Block::new(Content::Text {
+            html: "<p><strong>Hi</strong></p>".into(),
+        }));
+        folder.pages.push(page);
+        section.folders.push(folder);
+        fb.sections.push(section);
+        fb
+    }
+
+    fn page_path(dir: &Path, fb: &Filebox) -> PathBuf {
+        let page = fb.pages().next().unwrap().id;
+        dir.join(fb.id.to_string())
+            .join("pages")
+            .join(format!("{page}.md"))
     }
 
     #[test]
     fn save_uses_expected_layout() {
         let dir = tempfile::tempdir().unwrap();
         let store = FsStore::open(dir.path()).unwrap();
-        let fb = filebox("Notes");
+        let fb = with_page();
         block_on(store.save(&fb)).unwrap();
 
         let fb_dir = dir.path().join(fb.id.to_string());
         assert!(fb_dir.join("filebox.json").is_file());
         assert!(fb_dir.join("attachments").is_dir());
         assert!(!fb_dir.join("filebox.json.tmp").exists());
+        let json = fs::read_to_string(fb_dir.join("filebox.json")).unwrap();
+        assert!(!json.contains("blocks") && !json.contains("Hi"));
+        assert_eq!(
+            fs::read_to_string(page_path(dir.path(), &fb)).unwrap(),
+            "<!-- block -->
+**Hi**
+
+"
+        );
+    }
+
+    #[test]
+    fn save_rewrites_only_changed_pages() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::open(dir.path()).unwrap();
+        let mut fb = with_page();
+        block_on(store.save(&fb)).unwrap();
+
+        // A file left alone by an unchanged save keeps whatever is in it.
+        let path = page_path(dir.path(), &fb);
+        fs::write(&path, "untouched").unwrap();
+        block_on(store.save(&fb)).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "untouched");
+
+        fb.pages_mut().next().unwrap().blocks.clear();
+        block_on(store.save(&fb)).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "");
+    }
+
+    #[test]
+    fn deleting_a_page_removes_its_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::open(dir.path()).unwrap();
+        let mut fb = with_page();
+        block_on(store.save(&fb)).unwrap();
+        let path = page_path(dir.path(), &fb);
+        assert!(path.is_file());
+
+        fb.sections[0].folders[0].pages.clear();
+        block_on(store.save(&fb)).unwrap();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn old_filebox_with_blocks_in_json_loads_and_migrates() {
+        let dir = tempfile::tempdir().unwrap();
+        let fb = with_page();
+        let mut json = serde_json::to_value(&fb).unwrap();
+        json["sections"][0]["folders"][0]["pages"][0]["blocks"] =
+            serde_json::to_value(&fb.sections[0].folders[0].pages[0].blocks).unwrap();
+        let fb_dir = dir.path().join(fb.id.to_string());
+        fs::create_dir_all(&fb_dir).unwrap();
+        fs::write(fb_dir.join("filebox.json"), json.to_string()).unwrap();
+
+        let store = FsStore::open(dir.path()).unwrap();
+        let loaded = block_on(store.load(fb.id)).unwrap();
+        assert_eq!(loaded, fb);
+        block_on(store.save(&loaded)).unwrap();
+        assert!(page_path(dir.path(), &fb).is_file());
+        let json = fs::read_to_string(fb_dir.join("filebox.json")).unwrap();
+        assert!(!json.contains("blocks"));
+        let reopened = FsStore::open(dir.path()).unwrap();
+        assert_eq!(block_on(reopened.load(fb.id)).unwrap(), fb);
     }
 
     #[test]

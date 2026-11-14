@@ -1,5 +1,5 @@
-//! Export and import of `.filebox` zip archives: `filebox.json` plus
-//! `attachments/<attachment-id>`, the same layout as a store folder.
+//! Export and import of `.filebox` zip archives: `filebox.json`, `pages/<page-id>.md`,
+//! and `attachments/<attachment-id>`, the same layout as a store folder.
 
 use std::io::{self, Cursor, Read, Write};
 
@@ -7,8 +7,9 @@ use uuid::Uuid;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
+use crate::markdown::{from_markdown, to_markdown};
 use crate::model::{Filebox, Id};
-use crate::store::{ATTACHMENTS_DIR, FILEBOX_FILE, Store};
+use crate::store::{ATTACHMENTS_DIR, FILEBOX_FILE, PAGES_DIR, Store, page_file};
 
 pub const EXTENSION: &str = "filebox";
 
@@ -19,6 +20,10 @@ pub async fn export(store: &impl Store, id: Id) -> io::Result<Vec<u8>> {
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.start_file(FILEBOX_FILE, options)?;
     zip.write_all(&serde_json::to_vec_pretty(&filebox)?)?;
+    for page in filebox.pages() {
+        zip.start_file(format!("{PAGES_DIR}/{}", page_file(page.id)), options)?;
+        zip.write_all(to_markdown(&page.blocks).as_bytes())?;
+    }
     for attachment in filebox.attachments() {
         zip.start_file(format!("{ATTACHMENTS_DIR}/{attachment}"), options)?;
         zip.write_all(&store.get_attachment(id, attachment).await?)?;
@@ -31,6 +36,14 @@ pub async fn export(store: &impl Store, id: Id) -> io::Result<Vec<u8>> {
 pub async fn import(store: &impl Store, bytes: &[u8]) -> io::Result<Filebox> {
     let mut zip = ZipArchive::new(Cursor::new(bytes))?;
     let mut filebox: Filebox = serde_json::from_reader(zip.by_name(FILEBOX_FILE)?)?;
+    for page in filebox.pages_mut() {
+        // Archives from before Markdown storage keep blocks in the JSON instead.
+        if let Ok(mut file) = zip.by_name(&format!("{PAGES_DIR}/{}", page_file(page.id))) {
+            let mut md = String::new();
+            file.read_to_string(&mut md)?;
+            page.blocks = from_markdown(&md);
+        }
+    }
     if store.list().await?.iter().any(|s| s.id == filebox.id) {
         filebox.id = Uuid::new_v4();
     }
@@ -65,7 +78,7 @@ mod tests {
         let (image, file) = (Uuid::new_v4(), Uuid::new_v4());
         page.blocks = vec![
             Block::new(Content::Text {
-                html: "<p><b>Hi</b></p>".into(),
+                html: "<p><strong>Hi</strong></p>".into(),
             }),
             Block::new(Content::Image {
                 attachment: image,
@@ -149,10 +162,34 @@ mod tests {
         let mut expected: Vec<_> = attachments
             .iter()
             .map(|(id, _)| format!("attachments/{id}"))
+            .chain(fb.pages().map(|p| format!("pages/{}.md", p.id)))
             .chain(["filebox.json".to_string()])
             .collect();
         expected.sort();
         assert_eq!(names, expected);
+    }
+
+    #[test]
+    fn old_archive_with_blocks_in_json_imports() {
+        let (_from_dir, from) = store();
+        let (fb, attachments) = stored(&from);
+        let mut json = serde_json::to_value(&fb).unwrap();
+        json["sections"][0]["folders"][0]["pages"][0]["blocks"] =
+            serde_json::to_value(&fb.sections[0].folders[0].pages[0].blocks).unwrap();
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        zip.start_file(FILEBOX_FILE, SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(json.to_string().as_bytes()).unwrap();
+        for (id, bytes) in &attachments {
+            zip.start_file(format!("attachments/{id}"), SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        let bytes = zip.finish().unwrap().into_inner();
+
+        let (_to_dir, to) = store();
+        assert_eq!(block_on(import(&to, &bytes)).unwrap(), fb);
+        assert_eq!(block_on(to.load(fb.id)).unwrap(), fb);
     }
 
     #[test]

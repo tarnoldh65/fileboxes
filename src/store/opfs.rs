@@ -1,5 +1,6 @@
 //! Origin Private File System storage backend (web).
 
+use std::collections::HashSet;
 use std::io;
 
 use js_sys::{ArrayBuffer, Promise, Reflect, Uint8Array};
@@ -10,12 +11,14 @@ use web_sys::{
     FileSystemGetFileOptions, FileSystemRemoveOptions, FileSystemWritableFileStream,
 };
 
-use super::{ATTACHMENTS_DIR, FILEBOX_FILE, Store, Summary};
+use super::{ATTACHMENTS_DIR, FILEBOX_FILE, PAGES_DIR, Store, Summary, Written, page_file};
+use crate::markdown::{from_markdown, to_markdown};
 use crate::model::{Filebox, Id};
 
 /// Stores fileboxes in a folder of the browser's private storage for this site.
 pub struct OpfsStore {
     root: String,
+    written: Written,
 }
 
 impl OpfsStore {
@@ -23,7 +26,10 @@ impl OpfsStore {
     /// data instead of evicting it under storage pressure.
     pub fn new(root: impl Into<String>) -> Self {
         _ = storage().persist();
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            written: Written::default(),
+        }
     }
 
     async fn root(&self) -> io::Result<Dir> {
@@ -110,6 +116,16 @@ async fn names(dir: &Dir) -> io::Result<Vec<String>> {
     }
 }
 
+/// Deletes every entry in `dir` whose name is not in `keep`.
+async fn remove_others(dir: &Dir, keep: &HashSet<String>) -> io::Result<()> {
+    for name in names(dir).await? {
+        if !keep.contains(&name) {
+            resolve::<JsValue>(dir.remove_entry(&name)).await?;
+        }
+    }
+    Ok(())
+}
+
 impl Store for OpfsStore {
     async fn list(&self) -> io::Result<Vec<Summary>> {
         let root = self.root().await?;
@@ -128,22 +144,38 @@ impl Store for OpfsStore {
     }
 
     async fn load(&self, id: Id) -> io::Result<Filebox> {
-        let bytes = read(&self.filebox_dir(id, false).await?, FILEBOX_FILE).await?;
-        Ok(serde_json::from_slice(&bytes)?)
+        let dir = self.filebox_dir(id, false).await?;
+        let mut filebox: Filebox = serde_json::from_slice(&read(&dir, FILEBOX_FILE).await?)?;
+        // Fileboxes from before Markdown storage have no pages folder or page files;
+        // their pages keep the blocks from the JSON.
+        if let Ok(pages) = self::dir(&dir, PAGES_DIR, false).await {
+            for page in filebox.pages_mut() {
+                if let Ok(bytes) = read(&pages, &page_file(page.id)).await {
+                    let md = String::from_utf8(bytes).map_err(io::Error::other)?;
+                    page.blocks = from_markdown(&md);
+                    self.written.set(id, page.id, md);
+                }
+            }
+        }
+        Ok(filebox)
     }
 
     async fn save(&self, filebox: &Filebox) -> io::Result<()> {
         let dir = self.filebox_dir(filebox.id, true).await?;
         write(&dir, FILEBOX_FILE, &serde_json::to_vec_pretty(filebox)?).await?;
 
-        let attachments = self.attachments_dir(filebox.id, true).await?;
-        let used = filebox.attachments();
-        for name in names(&attachments).await? {
-            if !name.parse().is_ok_and(|id| used.contains(&id)) {
-                resolve::<JsValue>(attachments.remove_entry(&name)).await?;
+        let pages = self::dir(&dir, PAGES_DIR, true).await?;
+        for page in filebox.pages() {
+            let md = to_markdown(&page.blocks);
+            if !self.written.is_current(filebox.id, page.id, &md) {
+                write(&pages, &page_file(page.id), md.as_bytes()).await?;
+                self.written.set(filebox.id, page.id, md);
             }
         }
-        Ok(())
+        remove_others(&pages, &filebox.pages().map(|p| page_file(p.id)).collect()).await?;
+        let attachments = self.attachments_dir(filebox.id, true).await?;
+        let used = filebox.attachments().iter().map(Id::to_string).collect();
+        remove_others(&attachments, &used).await
     }
 
     async fn delete(&self, id: Id) -> io::Result<()> {

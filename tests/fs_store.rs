@@ -9,5 +9,6 @@ use fileboxes::store::fs::FsStore;
 fn fs_store_passes_storage_suite() {
     let dir = tempfile::tempdir().unwrap();
     let store = FsStore::open(dir.path()).unwrap();
-    pollster::block_on(suite::run(&store));
+    let reopened = FsStore::open(dir.path()).unwrap();
+    pollster::block_on(suite::run(&store, &reopened));
 }
