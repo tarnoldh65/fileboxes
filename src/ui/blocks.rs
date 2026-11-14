@@ -5,49 +5,83 @@ use dioxus::prelude::*;
 
 use super::files::open_file;
 use super::state::AppState;
+use crate::markdown::{from_markdown, to_markdown};
 use crate::model::{Block, Content, Id, Page, Table};
 use crate::sanitize::sanitize;
 
 #[component]
 pub fn PageView(page: Page) -> Element {
     let mut state = use_context::<AppState>();
+    let markdown = state.markdown;
     rsx! {
-        h1 { "{page.title}" }
-        Toolbar {}
-        div { class: "blocks",
-            for block in page.blocks {
-                BlockView { key: "{block.id}", block }
+        div { class: "page-head",
+            h1 { "{page.title}" }
+            button {
+                class: if markdown() { "selected" } else { "" },
+                title: "Show the page's Markdown source",
+                onclick: move |_| state.markdown.toggle(),
+                "Markdown"
             }
         }
-        div { class: "add-blocks",
-            button { onclick: move |_| state.add_block(Content::Text { html: String::new() }), "+ Text" }
-            button { onclick: move |_| state.add_block(Content::Table(Table::default())), "+ Table" }
-            label { class: "button",
-                "+ Image"
-                input {
-                    r#type: "file",
-                    accept: "image/*",
-                    hidden: true,
-                    onchange: move |e| {
-                        for file in e.files() {
-                            spawn(state.add_attachment(file, true));
-                        }
-                    },
+        if markdown() {
+            MarkdownSource { blocks: page.blocks }
+        } else {
+            Toolbar {}
+            div { class: "blocks",
+                for block in page.blocks {
+                    BlockView { key: "{block.id}", block }
                 }
             }
-            label { class: "button",
-                "+ File"
-                input {
-                    r#type: "file",
-                    hidden: true,
-                    onchange: move |e| {
-                        for file in e.files() {
-                            spawn(state.add_attachment(file, false));
-                        }
-                    },
+            div { class: "add-blocks",
+                button { onclick: move |_| state.add_block(Content::Text { html: String::new() }), "+ Text" }
+                button { onclick: move |_| state.add_block(Content::Table(Table::default())), "+ Table" }
+                label { class: "button",
+                    "+ Image"
+                    input {
+                        r#type: "file",
+                        accept: "image/*",
+                        hidden: true,
+                        onchange: move |e| {
+                            for file in e.files() {
+                                spawn(state.add_attachment(file, true));
+                            }
+                        },
+                    }
                 }
+                label { class: "button",
+                    "+ File"
+                    input {
+                        r#type: "file",
+                        hidden: true,
+                        onchange: move |e| {
+                            for file in e.files() {
+                                spawn(state.add_attachment(file, false));
+                            }
+                        },
+                    }
+                }
+                button { onclick: move |_| state.add_block(Content::Code { text: String::new() }), "+ Code" }
             }
-            button { onclick: move |_| state.add_block(Content::Code { text: String::new() }), "+ Code" }
+        }
+    }
+}
+
+/// The page as editable Markdown. Each edit replaces the page's blocks.
+#[component]
+fn MarkdownSource(blocks: Vec<Block>) -> Element {
+    let mut state = use_context::<AppState>();
+    // Keep the typed text: rebuilding it from the blocks would move the cursor.
+    let mut text = use_signal(|| to_markdown(&blocks));
+    rsx! {
+        textarea {
+            class: "code markdown",
+            spellcheck: "false",
+            value: "{text}",
+            oninput: move |e| {
+                let md = e.value();
+                state.edit_page(|p| p.blocks = from_markdown(&md));
+                text.set(md);
+            },
         }
     }
 }

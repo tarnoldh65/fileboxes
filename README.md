@@ -6,6 +6,7 @@ Organize notes into fileboxes, sections, folders, and pages. Runs on desktop and
 
 - Desktop: `Documents/Fileboxes` (or `~/Fileboxes` without a Documents folder). Change it with Storage folder; a OneDrive or Google Drive folder syncs your fileboxes.
 - Web: the browser's private storage for the site.
+- Each page is a Markdown file in `<filebox>/pages/`. The Markdown button on a page edits that source in the app.
 - Move fileboxes between devices with Export and Import (`.filebox` files).
 
 ## Develop

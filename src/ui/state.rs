@@ -81,6 +81,8 @@ pub struct AppState {
     pub error: Signal<Option<String>>,
     /// Bumped after each attachment write, so image blocks reload their bytes.
     pub attachments_written: Signal<u32>,
+    /// Pages show their Markdown source instead of the block editor.
+    pub markdown: Signal<bool>,
 }
 
 fn name(s: &str) -> Name {
@@ -99,6 +101,7 @@ impl AppState {
             deleting: Signal::new(None),
             error: Signal::new(None),
             attachments_written: Signal::new(0),
+            markdown: Signal::new(false),
         }
     }
 

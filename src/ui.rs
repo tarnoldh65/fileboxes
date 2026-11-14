@@ -331,6 +331,7 @@ mod tests {
     struct RootProps {
         filebox: Filebox,
         selection: Selection,
+        markdown: bool,
     }
 
     #[allow(non_snake_case)]
@@ -352,13 +353,26 @@ mod tests {
             selections.write().insert(props.filebox.id, props.selection);
             let mut filebox = state.filebox;
             filebox.set(Some(props.filebox.clone()));
+            let mut markdown = state.markdown;
+            markdown.set(props.markdown);
             state
         });
         rsx! { Shell {} }
     }
 
     fn render(filebox: Filebox, selection: Selection) -> String {
-        let mut dom = VirtualDom::new_with_props(Root, RootProps { filebox, selection });
+        render_mode(filebox, selection, false)
+    }
+
+    fn render_mode(filebox: Filebox, selection: Selection, markdown: bool) -> String {
+        let mut dom = VirtualDom::new_with_props(
+            Root,
+            RootProps {
+                filebox,
+                selection,
+                markdown,
+            },
+        );
         dom.rebuild_in_place();
         dioxus_ssr::render(&dom)
     }
@@ -462,5 +476,18 @@ mod tests {
         assert_eq!(html.matches("<td>").count(), 6);
         assert_eq!(html.matches("class=\"block half\"").count(), 1);
         assert_eq!(html.matches("class=\"block\"").count(), 4);
+    }
+
+    #[test]
+    fn markdown_mode_shows_the_source_instead_of_the_blocks() {
+        let mut fb = sample();
+        fb.sections[0].folders[0].pages[0].blocks = vec![Block::new(Content::Text {
+            html: "<p><b>Bold</b> words</p>".into(),
+        })];
+        let html = render_mode(fb, Selection::default(), true);
+        assert!(html.contains("class=\"code markdown\""));
+        assert!(html.contains("value=\"&#60;!-- block --&#62;\n**Bold** words"));
+        assert!(!html.contains("contenteditable"));
+        assert!(!html.contains("class=\"toolbar\""));
     }
 }
