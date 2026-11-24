@@ -283,3 +283,90 @@ Success criteria:
       the blocks.
 - [ ] Manual: switch back and forth while editing; nothing is lost, and the result
       survives a restart.
+
+## OneNote import
+
+Status: APPROVED 2026-11-23.
+
+Decisions (2026-11-23): the mapping below is approved; `.one` section files are imported
+too; OneNote files stay out of the repo and are tested locally.
+
+Import a OneNote notebook exported as a `.onepkg` file (OneNote desktop: File > Export >
+Notebook > OneNote Package), or a single `.one` section file, as a new filebox with its
+attachments. Import only; there is no export back to OneNote.
+
+New library: `onenote_parser` 2.1.0 (MPL-2.0, pure Rust) with the `onepkg` feature and
+default features off. It reads the OneNote desktop file format inside the package,
+including text formatting, tables, images, and attached files. Checked against
+`Notebook_Export.onepkg`: it reads both sections and every page, including bold
+runs, links, the image, and the 5x5 table. It also builds for the web.
+
+### Mapping
+
+| OneNote | Fileboxes |
+| --- | --- |
+| Notebook (`.onepkg`) | New filebox, named after the file |
+| Section group | Section (nested groups are flattened, named `Group / Subgroup`) |
+| Section outside any group | Folder inside a section named after the notebook |
+| Section inside a group | Folder in that group's section |
+| Single section (`.one`) | New filebox named after the file, with one section and one folder, both named after the OneNote section |
+| Page and subpage | Page, in OneNote order (subpage nesting is lost) |
+| Page text container | Text block. Containers are ordered top to bottom, then left to right |
+| Bold, italic, underline, strikethrough, font color, font size, alignment | The same formatting in the text block |
+| Heading styles (Heading 1-6) | Headings |
+| Bulleted and numbered lists, with nesting | Lists |
+| Links | Links |
+| Table | Table block, with formatted cells |
+| Image | Image block. The attachment holds the image; its alt text becomes the caption |
+| Attached file | File block. The attachment holds the file |
+| Ink, highlight color, page position and size | Not imported |
+
+Empty paragraphs are dropped (paragraphs are already separated). Leading spaces are
+kept, so indented lines keep their indent. Text that only looks like code (for example,
+pasted commands) stays text.
+
+### Testing without OneNote files in the repo
+
+The parser's types can only be built by reading a real OneNote file, so the module is
+split in two:
+- A thin walk over the parsed notebook that produces simple values: a tree of
+  groups, sections, and pages, and per page a list of paragraphs (text runs with their
+  formatting, list level, heading level, alignment), tables, images, and files.
+- Pure functions that turn those values into the filebox, blocks, and HTML. These hold
+  all the mapping rules and are unit tested in CI with hand-built values.
+
+The walk is tested locally against your own files: ignored tests read
+`Notebook_Export.onepkg` and `.one` files from the repo root and run with
+`cargo test -- --ignored`. CI skips them. `.gitignore` excludes `*.onepkg`, `*.one`, and
+`*.onetoc2`.
+
+### Phase 12 - OneNote import
+
+- [x] `onenote` module: turns `.onepkg` or `.one` bytes into a filebox plus its
+      attachment bytes, per the mapping above, split as described under Testing. All
+      converted text is sanitized like editor input.
+- [x] Import accepts `.filebox`, `.onepkg`, and `.one` files, chosen by file extension. A
+      OneNote import stores the attachments, saves the filebox, and opens it, like
+      a `.filebox` import.
+- [x] `.gitignore` excludes OneNote files.
+- [x] Found while testing: paragraph text of only dashes (`---`) or starting with `1)`
+      was saved unescaped and came back as a rule or a numbered list. The Markdown
+      writer now escapes both.
+
+Success criteria:
+- [x] Unit tests (CI, hand-built values): groups, sections, and pages land in the
+      sections, folders, and pages the mapping gives, in order, including nested groups
+      and a single `.one` section; each formatting type, heading, nested list, and link
+      becomes the expected HTML; tables keep their cells; images and files become blocks
+      pointing at attachments with the original bytes; text containers are ordered by
+      position.
+- [x] Unit tests: a file that is not OneNote gives an error; importing the same notebook
+      twice gives two separate fileboxes.
+- [x] Local tests (ignored in CI) on `Notebook_Export.onepkg` and a `.one` file
+      extracted from it: section, folder, and page names match; the Weather image bytes
+      and the 5x5 table come through; an imported notebook reloads from the store with
+      the same pages and Markdown.
+- [x] Desktop and web builds succeed, and clippy is clean for both.
+- [ ] Manual: import `Notebook_Export.onepkg` and a `.one` file on desktop and on the web.
+      All sections and pages appear, including the Weather image and table, and they
+      survive a restart.

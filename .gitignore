@@ -26,3 +26,8 @@ rustc-ice-*.txt
 # Dioxus
 dist/
 .dioxus/
+
+# OneNote files used for local testing
+*.onepkg
+*.one
+*.onetoc2

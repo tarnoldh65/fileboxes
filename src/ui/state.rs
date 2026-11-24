@@ -229,7 +229,7 @@ impl AppState {
         }
     }
 
-    /// Adds a filebox from a `.filebox` archive and opens it.
+    /// Adds a filebox from a `.filebox` archive or a OneNote file and opens it.
     pub async fn import_filebox(mut self, file: FileData) {
         let Some(bytes) = self.report(
             file.read_bytes()
@@ -239,7 +239,16 @@ impl AppState {
             return;
         };
         let store = self.store.peek().clone();
-        if let Some(fb) = self.report(crate::archive::import(&*store, &bytes).await) {
+        let name = file.name();
+        let onenote = name.rsplit_once('.').is_some_and(|(_, e)| {
+            crate::onenote::EXTENSIONS.contains(&e.to_ascii_lowercase().as_str())
+        });
+        let imported = if onenote {
+            crate::onenote::import(&*store, &bytes, &name).await
+        } else {
+            crate::archive::import(&*store, &bytes).await
+        };
+        if let Some(fb) = self.report(imported) {
             self.refresh().await;
             self.open(fb.id).await;
         }
