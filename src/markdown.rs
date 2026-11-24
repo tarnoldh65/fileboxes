@@ -15,13 +15,32 @@ const HALF: &str = "<!-- block half -->";
 /// Image and file links point here, relative to `pages/<page-id>.md`.
 const ATTACHMENTS: &str = "../attachments/";
 
-/// Plain `<div>`s (what the editor makes on Enter) become paragraphs; styled ones stay HTML.
-fn div_handler(handlers: &dyn Handlers, element: Element) -> Option<HandlerResult> {
+/// Plain `<p>`s and `<div>`s (what the editor makes on Enter) become paragraphs; styled
+/// ones stay HTML.
+fn paragraph_handler(handlers: &dyn Handlers, element: Element) -> Option<HandlerResult> {
     if !element.attrs.is_empty() {
         return handlers.fallback(element);
     }
     let content = handlers.walk_children(element.node).content;
-    Some(format!("\n\n{}\n\n", content.trim_matches('\n')).into())
+    let lines: Vec<String> = content
+        .trim_matches('\n')
+        .lines()
+        .map(escape_line_start)
+        .collect();
+    Some(format!("\n\n{}\n\n", lines.join("\n")).into())
+}
+
+/// Escapes the line starts htmd leaves that Markdown reads as a rule (`---`) or a
+/// numbered list (`1)`).
+fn escape_line_start(line: &str) -> String {
+    if line.starts_with("---") && line.chars().all(|c| c == '-' || c == ' ') {
+        return format!("\\{line}");
+    }
+    let digits = line.len() - line.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    if (1..=9).contains(&digits) && line[digits..].starts_with(')') {
+        return format!("{}\\{}", &line[..digits], &line[digits..]);
+    }
+    line.into()
 }
 
 fn html_to_markdown(html: &str) -> String {
@@ -34,7 +53,7 @@ fn html_to_markdown(html: &str) -> String {
             br_style: BrStyle::Backslash,
             ..Default::default()
         })
-        .add_handler(vec!["div"], div_handler)
+        .add_handler(vec!["p", "div"], paragraph_handler)
         .build()
         .convert(html)
         .expect("HTML always parses")
@@ -465,5 +484,21 @@ x = 1
                 code
             ]
         );
+    }
+
+    #[test]
+    fn text_that_looks_like_a_rule_or_numbered_list_stays_text() {
+        for html in [
+            "<p>---</p>",
+            "<p>- - -</p>",
+            "<p>1) one</p>",
+            "<div>2) two</div>",
+        ] {
+            let back = from_markdown(&to_markdown(&[text(html)]));
+            let Content::Text { html: back } = &back[0].content else {
+                panic!("not text");
+            };
+            assert!(back.starts_with("<p>"), "{html} became {back}");
+        }
     }
 }

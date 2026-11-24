@@ -151,11 +151,11 @@ fn FileboxPicker() -> Element {
             }
         }
         button { class: "add", title: "New filebox", onclick: move |_| { spawn(state.new_filebox()); }, "+" }
-        label { class: "button", title: "Import a .filebox file",
+        label { class: "button", title: "Import a .filebox file, a OneNote notebook (.onepkg), or a OneNote section (.one)",
             "Import"
             input {
                 r#type: "file",
-                accept: ".filebox",
+                accept: ".filebox,.onepkg,.one",
                 hidden: true,
                 onchange: move |e| {
                     for file in e.files() {

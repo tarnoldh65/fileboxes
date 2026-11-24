@@ -10,9 +10,11 @@ base64 = "0.23.1"
 dioxus = "0.7.10"
 futures-timer = "3.0.4"
 htmd = { version = "0.5.6", default-features = false }
+onenote_parser = { version = "2.1.0", default-features = false, features = ["onepkg"] }
 pulldown-cmark = { version = "0.13.6", default-features = false, features = ["html"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+typed-path = "0.12.4"
 uuid = { version = "1.29.1", features = ["v4", "serde", "js"] }
 zip = { version = "9.4.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 

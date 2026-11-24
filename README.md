@@ -8,6 +8,7 @@ Organize notes into fileboxes, sections, folders, and pages. Runs on desktop and
 - Web: the browser's private storage for the site.
 - Each page is a Markdown file in `<filebox>/pages/`. The Markdown button on a page edits that source in the app.
 - Move fileboxes between devices with Export and Import (`.filebox` files).
+- Import also reads OneNote notebooks (`.onepkg`, from OneNote: File > Export > Notebook > OneNote Package) and sections (`.one`) as new fileboxes.
 
 ## Develop
 
@@ -19,6 +20,8 @@ dx serve --platform web
 dx bundle --platform desktop --release
 cargo test
 ```
+
+OneNote tests that need real files are ignored by default. Put `Notebook_Export.onepkg` and `Weather.one` (a section from it) in the project folder and run `cargo test -- --ignored`. OneNote files are git-ignored.
 
 `dx bundle` writes the desktop installer under `target/dx/fileboxes/bundle/`.
 
